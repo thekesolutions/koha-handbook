@@ -402,6 +402,42 @@ my $library = $patron->library();
 3. Copy generated schema files to appropriate locations
 4. Create corresponding Koha::Object and Koha::Objects classes
 
+### Plugin-Specific Koha::Object Implementation
+
+**Plugin Schema Considerations:**
+- Plugin tables require custom schema file generation
+- Plugin objects follow same patterns but with plugin-specific naming
+- Schema registration happens in plugin's BEGIN block
+- Plugin objects are not part of core Koha schema
+
+**Plugin Object Naming Pattern:**
+```perl
+# Plugin object class
+package Koha::Plugin::Com::Company::PluginName::MyRecord;
+use base qw(Koha::Object);
+sub _type { return 'PluginMyrecord'; }
+
+# Plugin collection class
+package Koha::Plugin::Com::Company::PluginName::MyRecords;
+use base qw(Koha::Objects);
+sub _type { return 'Koha::Plugin::Com::Company::PluginName::MyRecord'; }
+```
+
+**Plugin Schema Registration:**
+```perl
+# In plugin's main class BEGIN block
+BEGIN {
+    push @INC, dirname(__FILE__) . '/lib';
+}
+
+# Register plugin schema classes
+use Koha::Schema;
+Koha::Schema->register_class('PluginMyrecord', 'Koha::Schema::Result::PluginMyrecord');
+```
+
+**Plugin Schema File Generation:**
+*Note: Detailed workflow for generating plugin schema files will be documented here.*
+
 ### Configuration Management
 
 **YAML-based Plugin Configuration:**
