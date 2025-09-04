@@ -164,14 +164,14 @@ Koha::Schema->register_class('PluginMyobject', 'Koha::Schema::Result::PluginMyob
 
 **Object Class Pattern:**
 ```perl
-package Koha::Plugin::Com::Company::PluginName::MyRecord;
+package Koha::MyRecord;
 
 use Modern::Perl;
 use base qw(Koha::Object);
 
 =head1 NAME
 
-Koha::Plugin::Com::Company::PluginName::MyRecord - Koha object class for plugin records
+Koha::MyRecord - Koha object class for records
 
 =head1 API
 
@@ -184,7 +184,7 @@ Return the DBIx::Class result name for this object
 =cut
 
 sub _type {
-    return 'PluginMyrecord';  # Must match schema class name
+    return 'Myrecord';  # Must match schema class name
 }
 
 =head2 Instance methods
@@ -213,14 +213,14 @@ sub custom_method {
 
 **Collection Class Pattern:**
 ```perl
-package Koha::Plugin::Com::Company::PluginName::MyRecords;
+package Koha::MyRecords;
 
 use Modern::Perl;
 use base qw(Koha::Objects);
 
 =head1 NAME
 
-Koha::Plugin::Com::Company::PluginName::MyRecords - Koha objects class for plugin records
+Koha::MyRecords - Koha objects class for records
 
 =head1 API
 
@@ -233,7 +233,7 @@ Return the object class name
 =cut
 
 sub _type {
-    return 'Koha::Plugin::Com::Company::PluginName::MyRecord';
+    return 'Koha::MyRecord';
 }
 
 =head2 Instance methods
@@ -250,30 +250,18 @@ sub pending {
     return $self->search({ status => 'PENDING' });
 }
 
-=head3 enqueue
-
-Add a new record to the collection
-
-=cut
-
-sub enqueue {
-    my ($self, $data) = @_;
-    
-    return $self->_resultset->create($data);
-}
-
 1;
 ```
 
 **Schema Class (Auto-generated):**
 ```perl
-package Koha::Schema::Result::PluginMyrecord;
+package Koha::Schema::Result::Myrecord;
 
 use strict;
 use warnings;
 use base 'DBIx::Class::Core';
 
-__PACKAGE__->table('plugin_myrecords');
+__PACKAGE__->table('myrecords');
 
 __PACKAGE__->add_columns(
     'id' => {
@@ -309,14 +297,14 @@ __PACKAGE__->set_primary_key('id');
 **Creating Objects:**
 ```perl
 # Create new record
-my $record = Koha::Plugin::Com::Company::PluginName::MyRecord->new({
+my $record = Koha::MyRecord->new({
     name   => 'Test Record',
     status => 'PENDING'
 })->store();
 
 # Alternative via collection
-my $records = Koha::Plugin::Com::Company::PluginName::MyRecords->new();
-my $record = $records->enqueue({
+my $records = Koha::MyRecords->new();
+my $record = $records->_resultset->create({
     name   => 'Test Record',
     status => 'PENDING'
 });
@@ -325,18 +313,15 @@ my $record = $records->enqueue({
 **Finding Objects:**
 ```perl
 # Find by primary key
-my $record = Koha::Plugin::Com::Company::PluginName::MyRecord->find($id);
+my $record = Koha::MyRecord->find($id);
 
 # Search with conditions
-my $records = Koha::Plugin::Com::Company::PluginName::MyRecords->search({
+my $records = Koha::MyRecords->search({
     status => 'PENDING'
 });
 
 # Chain methods
-my $pending_count = Koha::Plugin::Com::Company::PluginName::MyRecords
-    ->new()
-    ->pending()
-    ->count();
+my $pending_count = Koha::MyRecords->new()->pending()->count();
 ```
 
 **Updating Objects:**
@@ -351,57 +336,36 @@ $record->set({
 })->store();
 
 # Bulk update via collection
-Koha::Plugin::Com::Company::PluginName::MyRecords
-    ->search({ status => 'PENDING' })
-    ->update({ status => 'CANCELLED' });
+Koha::MyRecords->search({ status => 'PENDING' })
+               ->update({ status => 'CANCELLED' });
 ```
 
 **Relationships:**
 ```perl
 # Define relationships in schema class
 __PACKAGE__->belongs_to(
-    'ill_request',
-    'Koha::Schema::Result::Illrequest',
-    { 'foreign.illrequest_id' => 'self.illrequest_id' }
+    'patron',
+    'Koha::Schema::Result::Borrower',
+    { 'foreign.borrowernumber' => 'self.borrowernumber' }
 );
 
 # Use relationships in object class
-sub ill_request {
+sub patron {
     my ($self) = @_;
-    return Koha::ILL::Request->_new_from_dbic($self->_result->ill_request);
+    return Koha::Patron->_new_from_dbic($self->_result->patron);
 }
 
 # Access related objects
-my $request = $record->ill_request();
-my $patron = $request->patron();
-```
-
-**Plugin Integration:**
-```perl
-# In main plugin class
-sub get_my_records {
-    my ($self) = @_;
-    return Koha::Plugin::Com::Company::PluginName::MyRecords->new();
-}
-
-sub get_my_record {
-    my ($self, $id) = @_;
-    return Koha::Plugin::Com::Company::PluginName::MyRecord->find($id);
-}
-
-# Usage in plugin methods
-my $records = $self->get_my_records()->pending();
-while (my $record = $records->next) {
-    $record->custom_method();
-}
+my $patron = $record->patron();
+my $library = $patron->library();
 ```
 
 **Best Practices:**
 
 1. **Naming Conventions**:
-   - Object class: Singular noun (`MyRecord`)
-   - Collection class: Plural noun (`MyRecords`)
-   - Schema class: Lowercase with plugin prefix (`PluginMyrecord`)
+   - Object class: Singular noun (`Koha::MyRecord`)
+   - Collection class: Plural noun (`Koha::MyRecords`)
+   - Schema class: Lowercase (`Koha::Schema::Result::Myrecord`)
 
 2. **Method Organization**:
    - **Class methods**: Return types, validation, factory methods
@@ -411,7 +375,7 @@ while (my $record = $records->next) {
 3. **Error Handling**:
    ```perl
    # Check if object exists
-   my $record = Koha::Plugin::Com::Company::PluginName::MyRecord->find($id);
+   my $record = Koha::MyRecord->find($id);
    return unless $record;
    
    # Handle database errors
@@ -426,8 +390,7 @@ while (my $record = $records->next) {
 4. **Performance Considerations**:
    ```perl
    # Use prefetch for related data
-   my $records = Koha::Plugin::Com::Company::PluginName::MyRecords
-       ->search({}, { prefetch => 'ill_request' });
+   my $records = Koha::MyRecords->search({}, { prefetch => 'patron' });
    
    # Use result set methods for bulk operations
    $records->delete();  # More efficient than iterating
@@ -435,10 +398,9 @@ while (my $record = $records->next) {
 
 **Schema Generation Workflow:**
 1. Create/modify database tables
-2. Install plugin to register schema changes
-3. Regenerate schema using KTD: `misc/devel/update_dbix_class_files.pl`
-4. Copy plugin-specific schema files to plugin directory
-5. Clean up Koha source repository
+2. Regenerate schema using KTD: `misc/devel/update_dbix_class_files.pl`
+3. Copy generated schema files to appropriate locations
+4. Create corresponding Koha::Object and Koha::Objects classes
 
 ### Configuration Management
 
