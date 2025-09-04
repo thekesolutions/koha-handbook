@@ -154,6 +154,292 @@ use Koha::Schema;
 Koha::Schema->register_class('PluginMyobject', 'Koha::Schema::Result::PluginMyobject');
 ```
 
+### Koha::Object System
+
+**Core Concepts:**
+- **Koha::Object**: Base class for single database record objects
+- **Koha::Objects**: Base class for collections (result sets) of objects
+- **DBIx::Class Integration**: Built on top of DBIx::Class ORM
+- **Automatic Methods**: Provides CRUD operations and relationship handling
+
+**Object Class Pattern:**
+```perl
+package Koha::Plugin::Com::Company::PluginName::MyRecord;
+
+use Modern::Perl;
+use base qw(Koha::Object);
+
+=head1 NAME
+
+Koha::Plugin::Com::Company::PluginName::MyRecord - Koha object class for plugin records
+
+=head1 API
+
+=head2 Class methods
+
+=head3 _type
+
+Return the DBIx::Class result name for this object
+
+=cut
+
+sub _type {
+    return 'PluginMyrecord';  # Must match schema class name
+}
+
+=head2 Instance methods
+
+=head3 custom_method
+
+Custom business logic method
+
+=cut
+
+sub custom_method {
+    my ($self) = @_;
+    
+    # Access fields directly
+    my $id = $self->id;
+    my $name = $self->name;
+    
+    # Modify and save
+    $self->status('PROCESSED')->store;
+    
+    return $self;
+}
+
+1;
+```
+
+**Collection Class Pattern:**
+```perl
+package Koha::Plugin::Com::Company::PluginName::MyRecords;
+
+use Modern::Perl;
+use base qw(Koha::Objects);
+
+=head1 NAME
+
+Koha::Plugin::Com::Company::PluginName::MyRecords - Koha objects class for plugin records
+
+=head1 API
+
+=head2 Class methods
+
+=head3 _type
+
+Return the object class name
+
+=cut
+
+sub _type {
+    return 'Koha::Plugin::Com::Company::PluginName::MyRecord';
+}
+
+=head2 Instance methods
+
+=head3 pending
+
+Return only pending records
+
+=cut
+
+sub pending {
+    my ($self) = @_;
+    
+    return $self->search({ status => 'PENDING' });
+}
+
+=head3 enqueue
+
+Add a new record to the collection
+
+=cut
+
+sub enqueue {
+    my ($self, $data) = @_;
+    
+    return $self->_resultset->create($data);
+}
+
+1;
+```
+
+**Schema Class (Auto-generated):**
+```perl
+package Koha::Schema::Result::PluginMyrecord;
+
+use strict;
+use warnings;
+use base 'DBIx::Class::Core';
+
+__PACKAGE__->table('plugin_myrecords');
+
+__PACKAGE__->add_columns(
+    'id' => {
+        data_type         => 'integer',
+        is_auto_increment => 1,
+        is_nullable       => 0,
+    },
+    'name' => {
+        data_type   => 'varchar',
+        size        => 255,
+        is_nullable => 0,
+    },
+    'status' => {
+        data_type     => 'varchar',
+        size          => 50,
+        is_nullable   => 0,
+        default_value => 'PENDING',
+    },
+    'created_on' => {
+        data_type     => 'timestamp',
+        is_nullable   => 0,
+        default_value => \'CURRENT_TIMESTAMP',
+    },
+);
+
+__PACKAGE__->set_primary_key('id');
+
+1;
+```
+
+**Usage Patterns:**
+
+**Creating Objects:**
+```perl
+# Create new record
+my $record = Koha::Plugin::Com::Company::PluginName::MyRecord->new({
+    name   => 'Test Record',
+    status => 'PENDING'
+})->store();
+
+# Alternative via collection
+my $records = Koha::Plugin::Com::Company::PluginName::MyRecords->new();
+my $record = $records->enqueue({
+    name   => 'Test Record',
+    status => 'PENDING'
+});
+```
+
+**Finding Objects:**
+```perl
+# Find by primary key
+my $record = Koha::Plugin::Com::Company::PluginName::MyRecord->find($id);
+
+# Search with conditions
+my $records = Koha::Plugin::Com::Company::PluginName::MyRecords->search({
+    status => 'PENDING'
+});
+
+# Chain methods
+my $pending_count = Koha::Plugin::Com::Company::PluginName::MyRecords
+    ->new()
+    ->pending()
+    ->count();
+```
+
+**Updating Objects:**
+```perl
+# Update single field
+$record->status('PROCESSED')->store();
+
+# Update multiple fields
+$record->set({
+    status      => 'COMPLETED',
+    processed_on => dt_from_string()
+})->store();
+
+# Bulk update via collection
+Koha::Plugin::Com::Company::PluginName::MyRecords
+    ->search({ status => 'PENDING' })
+    ->update({ status => 'CANCELLED' });
+```
+
+**Relationships:**
+```perl
+# Define relationships in schema class
+__PACKAGE__->belongs_to(
+    'ill_request',
+    'Koha::Schema::Result::Illrequest',
+    { 'foreign.illrequest_id' => 'self.illrequest_id' }
+);
+
+# Use relationships in object class
+sub ill_request {
+    my ($self) = @_;
+    return Koha::ILL::Request->_new_from_dbic($self->_result->ill_request);
+}
+
+# Access related objects
+my $request = $record->ill_request();
+my $patron = $request->patron();
+```
+
+**Plugin Integration:**
+```perl
+# In main plugin class
+sub get_my_records {
+    my ($self) = @_;
+    return Koha::Plugin::Com::Company::PluginName::MyRecords->new();
+}
+
+sub get_my_record {
+    my ($self, $id) = @_;
+    return Koha::Plugin::Com::Company::PluginName::MyRecord->find($id);
+}
+
+# Usage in plugin methods
+my $records = $self->get_my_records()->pending();
+while (my $record = $records->next) {
+    $record->custom_method();
+}
+```
+
+**Best Practices:**
+
+1. **Naming Conventions**:
+   - Object class: Singular noun (`MyRecord`)
+   - Collection class: Plural noun (`MyRecords`)
+   - Schema class: Lowercase with plugin prefix (`PluginMyrecord`)
+
+2. **Method Organization**:
+   - **Class methods**: Return types, validation, factory methods
+   - **Instance methods**: Business logic, custom operations
+   - **Collection methods**: Filtering, bulk operations
+
+3. **Error Handling**:
+   ```perl
+   # Check if object exists
+   my $record = Koha::Plugin::Com::Company::PluginName::MyRecord->find($id);
+   return unless $record;
+   
+   # Handle database errors
+   try {
+       $record->store();
+   } catch {
+       warn "Failed to save record: $_";
+       return;
+   };
+   ```
+
+4. **Performance Considerations**:
+   ```perl
+   # Use prefetch for related data
+   my $records = Koha::Plugin::Com::Company::PluginName::MyRecords
+       ->search({}, { prefetch => 'ill_request' });
+   
+   # Use result set methods for bulk operations
+   $records->delete();  # More efficient than iterating
+   ```
+
+**Schema Generation Workflow:**
+1. Create/modify database tables
+2. Install plugin to register schema changes
+3. Regenerate schema using KTD: `misc/devel/update_dbix_class_files.pl`
+4. Copy plugin-specific schema files to plugin directory
+5. Clean up Koha source repository
+
 ### Configuration Management
 
 **YAML-based Plugin Configuration:**
