@@ -585,6 +585,19 @@ my $builder = t::lib::TestBuilder->new;
 my $logger  = t::lib::Mocks::Logger->new();
 
 subtest 'a_method() tests' => sub {
+    plan tests => 3;  # Number of individual tests
+    
+    $schema->storage->txn_begin;
+    $logger->clear();
+    
+    # Test implementation - all tests for this method
+    
+    $schema->storage->txn_rollback;
+};
+
+# OR if multiple behaviors need testing:
+
+subtest 'a_method() tests' => sub {
     plan tests => 2;  # Number of inner subtests
     
     subtest 'Successful operations' => sub {
@@ -609,6 +622,11 @@ subtest 'a_method() tests' => sub {
     };
 };
 ```
+
+**Transaction Rules:**
+- Main subtest wrapped in transaction if only one behavior tested
+- Each inner subtest wrapped in transaction if multiple behaviors tested
+- Never nest transactions
 
 **Database-Dependent Test Template:**
 ```perl
