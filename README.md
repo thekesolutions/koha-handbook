@@ -558,6 +558,58 @@ Koha::Database->schema->storage->txn_do(
 
 ### Test Structure Patterns
 
+**File Organization Standards:**
+- Database-dependent tests for `a_method` in class `Some::Class` → `t/db_dependent/Some/Class.t`
+- Main subtest titled `'a_method() tests'` contains all tests for that method
+- Inner subtests have descriptive titles for specific behaviors
+
+**Standard Test File Structure:**
+```perl
+use Modern::Perl;
+use Test::More tests => N;  # N = number of main subtests + use_ok
+use Test::Exception;
+use Test::MockModule;
+use Test::MockObject;
+
+use t::lib::TestBuilder;
+use t::lib::Mocks;
+use t::lib::Mocks::Logger;
+
+BEGIN {
+    use_ok('Some::Class');
+}
+
+# Global variables for entire test file
+my $schema  = Koha::Database->new->schema;
+my $builder = t::lib::TestBuilder->new;
+my $logger  = t::lib::Mocks::Logger->new();
+
+subtest 'a_method() tests' => sub {
+    plan tests => 2;  # Number of inner subtests
+    
+    subtest 'Successful operations' => sub {
+        plan tests => 3;  # Number of individual tests
+        
+        $schema->storage->txn_begin;
+        $logger->clear();
+        
+        # Test implementation
+        
+        $schema->storage->txn_rollback;
+    };
+    
+    subtest 'Error conditions' => sub {
+        plan tests => 2;
+        
+        $schema->storage->txn_begin;
+        
+        # Error test implementation
+        
+        $schema->storage->txn_rollback;
+    };
+};
+```
+
 **Database-Dependent Test Template:**
 ```perl
 use Modern::Perl;
