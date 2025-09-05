@@ -628,6 +628,19 @@ subtest 'a_method() tests' => sub {
 - Each inner subtest wrapped in transaction if multiple behaviors tested
 - Never nest transactions
 
+**TestBuilder Class Naming Convention:**
+```perl
+# IMPORTANT: TestBuilder->build_object() requires PLURAL class names
+my $patron = $builder->build_object({ class => 'Koha::Patrons' });     # ✓ Correct
+my $library = $builder->build_object({ class => 'Koha::Libraries' });   # ✓ Correct  
+my $item = $builder->build_object({ class => 'Koha::Items' });         # ✓ Correct
+
+# NOT singular class names
+my $patron = $builder->build_object({ class => 'Koha::Patron' });      # ✗ Wrong
+```
+
+**Rule**: Always use the plural/collection class name (e.g., `Koha::Patrons`, `RapidoILL::CircActions`) not the singular object class name (e.g., `Koha::Patron`, `RapidoILL::CircAction`).
+
 **Database-Dependent Test Template:**
 ```perl
 use Modern::Perl;
