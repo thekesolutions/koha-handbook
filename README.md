@@ -67,6 +67,17 @@ cd /kohadevbox/koha && perl misc/devel/install_plugins.pl
 
 ## Architecture & Design Patterns
 
+### Koha Objects and DBIx::Class Integration
+
+For comprehensive understanding of Koha's object-relational mapping system, see:
+**[Koha Objects System: DBIx::Class Integration Architecture](koha_objects_system.md)**
+
+This guide covers:
+- DBIx::Class Schema layer and Koha Object wrapper relationships
+- Schema regeneration tools (`update_dbic_class_files.pl`, KTD `dbic`)
+- Object creation patterns, database operations, and performance considerations
+- Plugin development with custom objects and schema extensions
+
 ### ActionHandler Pattern (Rapido ILL Example)
 
 **Separation of Concerns:**
