@@ -569,6 +569,7 @@ use Try::Tiny qw(catch try);
 
 use t::lib::TestBuilder;
 use t::lib::Mocks;
+use t::lib::Mocks::Logger;  # Logger mock for testing log output
 
 BEGIN {
     use_ok('Module::Under::Test');
@@ -667,6 +668,103 @@ my $config = {
         base_url => 'https://test.example.com',
         # ... other config
     }
+};
+```
+
+### Logger Testing with t::lib::Mocks::Logger
+
+**Setup and Basic Usage:**
+```perl
+use t::lib::Mocks::Logger;
+
+# Create logger mock instance (usually at test file level)
+my $logger = t::lib::Mocks::Logger->new();
+
+# The mock automatically replaces Koha::Logger->get()
+my $mocked_logger = Koha::Logger->get();
+
+# Clear previous log messages before test
+$logger->clear();
+
+# Your code that logs messages
+$mocked_logger->debug('Debug message');
+$mocked_logger->info('Processing item 123');
+$mocked_logger->warn('Item not found');
+$mocked_logger->error('Database connection failed');
+```
+
+**Testing Log Messages:**
+
+**Exact Message Matching:**
+```perl
+# Test exact log message content
+$logger->debug_is('Debug message', 'Debug message logged correctly');
+$logger->info_is('Processing item 123', 'Info message matches');
+$logger->warn_is('Item not found', 'Warning message captured');
+$logger->error_is('Database connection failed', 'Error logged');
+```
+
+**Regex Pattern Matching:**
+```perl
+# Test log messages with patterns
+$logger->debug_like(qr/Debug/, 'Debug message contains expected text');
+$logger->info_like(qr/Processing item \d+/, 'Info message matches pattern');
+$logger->warn_like(qr/Item.*not found/, 'Warning matches regex');
+$logger->error_like(qr/Database.*failed/, 'Error message pattern matched');
+```
+
+**Message Counting and Consumption:**
+```perl
+# Count total messages
+is($logger->count, 4, 'Four messages logged total');
+
+# Count by log level
+is($logger->count('debug'), 1, 'One debug message');
+is($logger->count('info'), 1, 'One info message');
+
+# Messages are consumed when tested (FIFO queue)
+$mocked_logger->debug('First debug');
+$mocked_logger->debug('Second debug');
+
+$logger->debug_is('First debug', 'First message consumed');
+$logger->debug_is('Second debug', 'Second message consumed');
+is($logger->count('debug'), 0, 'All debug messages consumed');
+```
+
+**Method Chaining and Debugging:**
+```perl
+# Chain multiple assertions
+$logger->debug_is('Debug message', 'Debug test')
+       ->info_is('Info message', 'Info test')
+       ->warn_like(qr/Warning/, 'Warning pattern test');
+
+# Clear messages (all or by level)
+$logger->clear();           # Clear all messages
+$logger->clear('debug');    # Only clear debug messages
+
+# Debug test failures
+$logger->diag();  # Prints all captured messages to test output
+```
+
+**Complete Logger Test Example:**
+```perl
+subtest 'Logger testing example' => sub {
+    plan tests => 4;
+    
+    $logger->clear();  # Always clear before test
+    
+    # Code under test that logs messages
+    my $processor = MyModule->new();
+    $processor->process_item(123);
+    
+    # Test expected messages
+    $logger->info_like(qr/Processing item 123/, 'Processing logged');
+    $logger->debug_is('Item validation passed', 'Validation logged');
+    is($logger->count, 2, 'Two messages logged total');
+    
+    # Test error path
+    $processor->process_item('invalid');
+    $logger->error_like(qr/Invalid item/, 'Error logged for invalid input');
 };
 ```
 
