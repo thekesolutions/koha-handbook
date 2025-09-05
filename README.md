@@ -78,6 +78,17 @@ This guide covers:
 - Object creation patterns, database operations, and performance considerations
 - Plugin development with custom objects and schema extensions
 
+### Template::Toolkit System Architecture
+
+For detailed understanding of Koha's templating and internationalization system, see:
+**[Koha Template::Toolkit System Architecture](koha_template_toolkit.md)**
+
+This guide covers:
+- C4::Templates and C4::Languages integration for multi-theme, multi-language support
+- Template resolution process, fallback mechanisms, and directory structure
+- Internationalization (i18n) patterns, translation workflows, and language detection
+- Plugin template integration, performance optimization, and development best practices
+
 ### ActionHandler Pattern (Rapido ILL Example)
 
 **Separation of Concerns:**
