@@ -89,6 +89,17 @@ This guide covers:
 - Internationalization (i18n) patterns, translation workflows, and language detection
 - Plugin template integration, performance optimization, and development best practices
 
+### RESTful API Architecture
+
+For comprehensive understanding of Koha's REST API built with Mojolicious and OpenAPI, see:
+**[Koha RESTful API Architecture: Mojolicious and OpenAPI Integration](koha_rest_api_architecture.md)**
+
+This guide covers:
+- Mojolicious framework integration with OpenAPI specification validation
+- Custom helper plugins (Objects, Query, Pagination, Exceptions) and Koha Object system integration
+- Authentication/authorization patterns, plugin route registration, and API extension mechanisms
+- Performance optimizations, development patterns, and advanced features (streaming, bulk operations)
+
 ### ActionHandler Pattern (Rapido ILL Example)
 
 **Separation of Concerns:**
