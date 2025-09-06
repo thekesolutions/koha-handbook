@@ -263,21 +263,23 @@ perl misc/devel/update_dbic_class_files.pl
 ```
 
 ### KTD Development Workflow
-For developers using Koha Testing Docker (KTD), use the `dbic` script for a clean schema refresh:
+For developers using Koha Testing Docker (KTD), use the `dbic` script for schema regeneration:
 
 ```bash
 # In your KTD environment
 ktd --shell
 
-# Inside the container, refresh database and regenerate schema
+# Inside the container, regenerate schema files
 dbic
 
 # This script:
-# 1. Drops and recreates the koha_kohadev database
-# 2. Loads fresh sample data
-# 3. Runs update_dbic_class_files.pl
-# 4. Ensures a clean state for schema development
+# 1. Creates a temporary 'dbic' database with fresh structure
+# 2. Loads kohastructure.sql (base schema without sample data)
+# 3. Runs update_dbix_class_files.pl against the clean schema
+# 4. Generates schema files based on pure database structure
 ```
+
+**Important**: The `dbic` script does NOT affect your main koha_kohadev database - it uses a separate temporary database purely for schema file generation.
 
 ### When to Regenerate Schema Files
 
