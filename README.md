@@ -964,7 +964,43 @@ sub configuration {
 }
 ```
 
-## Commit Standards
+## Plugin Development
+
+### Plugin Structure
+
+**Standard Plugin Directory Layout:**
+```
+Koha/Plugin/Com/Company/PluginName.pm          # Main plugin class
+Koha/Plugin/Com/Company/PluginName/lib/        # Plugin libraries
+├── PluginName/                                # Business logic
+│   ├── Backend.pm                            # ILL Backend (if applicable)
+│   ├── Client.pm                             # API client
+│   ├── Exceptions.pm                         # Custom exceptions
+│   └── Backend/                              # ActionHandlers
+│       ├── LenderActions.pm                  # Lender business logic
+│       └── BorrowerActions.pm                # Borrower business logic
+├── Koha/Schema/Result/                       # Database schema classes
+└── templates/                                # Template files
+t/                                            # Unit tests
+t/db_dependent/                               # Integration tests
+scripts/                                      # System scripts
+```
+
+### Plugin Architecture
+
+For comprehensive understanding of Koha's plugin framework, data storage, lifecycle management, and architectural patterns, see:
+**[Koha Plugin Architecture](plugin_architecture.md)**
+
+This guide covers:
+- Plugin framework overview and core storage API
+- Data persistence patterns and configuration management
+- Plugin lifecycle methods (install, upgrade, uninstall)
+- Configuration validation and management scripts
+- Database integration with custom schema classes
+- Template integration and hook system usage
+- Best practices for performance, error handling, and maintainability
+
+### Plugin Lifecycle Methods
 
 ### Rapido ILL Commit Format
 
