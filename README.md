@@ -41,6 +41,31 @@ ktd --name instance --shell --run "cd /kohadevbox/koha && perl misc/devel/instal
 ktd --name instance --shell --run "command"
 ```
 
+**KTD Database Management:**
+```bash
+# Run database updates (atomic updates)
+ktd --shell --run "cd /kohadevbox/koha && perl installer/data/mysql/updatedatabase.pl"
+
+# Access MySQL shell for Koha database
+ktd --shell --run "koha-mysql kohadev"
+
+# Execute SQL commands directly
+ktd --shell --run "koha-mysql kohadev -e 'SHOW TRIGGERS LIKE \"borrowers\";'"
+
+# List available Koha instances
+ktd --shell --run "koha-list"
+
+# Test database functions
+ktd --shell --run "cd /kohadevbox/koha && perl -MC4::Installer=trigger_exists -e 'print trigger_exists(\"trigger_name\") ? \"EXISTS\" : \"NOT FOUND\";'"
+
+# Database backup and restore testing
+ktd --shell --run "mysqldump -hdb -uroot -ppassword koha_kohadev > /tmp/backup.sql"
+ktd --shell --run "mysql -hdb -uroot -ppassword -e 'CREATE DATABASE test_restore;'"
+ktd --shell --run "mysql -hdb -uroot -ppassword test_restore < /tmp/backup.sql"
+ktd --shell --run "mysql -hdb -uroot -ppassword test_restore -e 'SHOW TRIGGERS LIKE \"borrowers\";'"
+ktd --shell --run "mysql -hdb -uroot -ppassword -e 'DROP DATABASE test_restore;'"
+```
+
 **Critical Setup Requirements:**
 - `.env` file must exist (copy from `env/defaults.env`)
 - `ktd` script location: `$KTD_HOME/bin/ktd`
@@ -530,6 +555,222 @@ find . -name "*.bak" -delete
 4. Run tests to verify
 5. Commit clean code
 
+### TODO Item Management
+
+**Tracking TODO Items in Commits:**
+When commits include TODO sections, track progress systematically:
+
+```
+TODO:
+* Exception handling is not implemented in Koha::Patron->store() ✅ COMPLETED
+* Exceptions are not defined yet ✅ COMPLETED  
+* Method validation needs updating ✅ COMPLETED
+* Some existing tests should fail and will need tweaks ⏳ IN PROGRESS
+* Database consistency check needed ⏳ PENDING
+```
+
+**Follow-up Commit Pattern for TODO Resolution:**
+```
+Bug XXXXX: (follow-up) Complete TODO items for [feature]
+
+This patch completes the remaining TODO items from the original implementation.
+
+Changes:
+- Add exception classes for proper error handling
+- Update validation methods to work with database constraints  
+- Adapt existing tests to new behavior patterns
+- Add comprehensive test coverage
+
+Test plan:
+1. Apply patch
+2. Run comprehensive tests:
+   $ ktd --shell
+  k$ prove -v t/db_dependent/Feature_tests.t
+=> SUCCESS: All TODO items resolved
+3. Verify functionality works as expected
+4. Sign off :-D
+```
+
+**Best Practices for TODO Management:**
+1. **Track Progress**: Use ✅ COMPLETED, ⏳ IN PROGRESS, ⏳ PENDING
+2. **Systematic Resolution**: Address items in logical dependency order
+3. **Comprehensive Testing**: Each TODO resolution should include tests
+4. **Clear Documentation**: Explain what was changed and why
+5. **Follow-up Commits**: Use consistent commit message format
+
+**Creating Database Triggers in Atomic Updates:**
+```perl
+use Modern::Perl;
+use C4::Installer qw( trigger_exists );
+use Koha::Installer::Output qw(say_warning say_success say_info);
+
+return {
+    bug_number  => "XXXXX",
+    description => "Add database triggers for data integrity",
+    up          => sub {
+        my ($args) = @_;
+        my ( $dbh, $out ) = @$args{qw(dbh out)};
+
+        # Check if trigger exists before creating
+        unless ( trigger_exists('my_trigger_name') ) {
+            $dbh->do(q{
+                CREATE TRIGGER my_trigger_name
+                    BEFORE INSERT ON table_name
+                    FOR EACH ROW
+                BEGIN
+                    -- Trigger logic here
+                    IF condition THEN
+                        SIGNAL SQLSTATE '45000'
+                        SET MESSAGE_TEXT = 'Koha::Exceptions::MyException';
+                    END IF;
+                END
+            });
+            say_success( $out, "Created trigger to enforce data integrity" );
+        }
+    },
+};
+```
+
+**Best Practices for Database Triggers:**
+1. **Always check existence** using `trigger_exists()` before creation
+2. **Use descriptive names** with consistent prefixes (e.g., `trg_tablename_purpose`)
+3. **Include both atomic update and kohastructure.sql** for new installations
+4. **Use SIGNAL SQLSTATE '45000'** for custom error messages
+5. **Follow Koha exception naming** patterns in error messages
+6. **Test trigger behavior** thoroughly before committing
+
+**Testing Database Triggers:**
+```bash
+# Inside KTD - Check if triggers exist
+ktd --shell --run "koha-mysql kohadev -e 'SHOW TRIGGERS LIKE \"table_name\";'"
+
+# Test trigger_exists function
+ktd --shell --run "cd /kohadevbox/koha && perl -MC4::Installer=trigger_exists -e 'print trigger_exists(\"trigger_name\") ? \"EXISTS\" : \"NOT FOUND\";'"
+
+# Run atomic updates
+ktd --shell --run "cd /kohadevbox/koha && perl installer/data/mysql/updatedatabase.pl"
+```
+
+**Structure and Best Practices:**
+
+Atomic updates in Koha follow a specific structure defined in `installer/data/mysql/atomicupdate/skeleton.pl`:
+
+```perl
+use Modern::Perl;
+use Koha::Installer::Output qw(say_warning say_success say_info);
+
+return {
+    bug_number  => "BUG_NUMBER",
+    description => "A single line description",
+    up          => sub {
+        my ($args) = @_;
+        my ( $dbh, $out ) = @$args{qw(dbh out)};
+
+        # Database operations
+        $dbh->do(q{});
+
+        # Standardized output messages
+        say $out "Added new system preference 'XXX'";
+        say_success( $out, "Use green for success" );
+        say_warning( $out, "Use yellow for warning/a call to action" );
+        say_info( $out, "Use blue for further information" );
+    },
+};
+```
+
+**Key Requirements:**
+1. **File Permissions**: Atomic update files must be executable (`chmod +x`)
+2. **Output Functions**: Use `Koha::Installer::Output` for consistent messaging
+3. **Standard Messages**: Follow skeleton.pl patterns for different operations:
+   - Tables: "Added new table 'XXX'"
+   - Columns: "Added column 'XXX.YYY'"
+   - System preferences: "Added new system preference 'XXX'"
+   - Permissions: "Added new permission 'XXX'"
+   - Letters: "Added new letter 'XXX' (TRANSPORT)"
+
+### Exception Handling
+
+**Creating Domain-Specific Exceptions:**
+
+Follow the pattern established in `Koha::Exceptions::Patron`:
+
+```perl
+package Koha::Exceptions::ApiKey;
+
+use Modern::Perl;
+use Koha::Exception;
+
+use Exception::Class (
+    'Koha::Exceptions::ApiKey' => {
+        isa => 'Koha::Exception',
+    },
+    'Koha::Exceptions::ApiKey::AlreadyRevoked' => {
+        isa         => 'Koha::Exceptions::ApiKey',
+        description => 'API key is already revoked'
+    },
+);
+
+=head1 NAME
+
+Koha::Exceptions::ApiKey - Base class for API key exceptions
+
+=head1 Exceptions
+
+=head2 Koha::Exceptions::ApiKey
+
+Generic API key exception.
+
+=head2 Koha::Exceptions::ApiKey::AlreadyRevoked
+
+Exception thrown when trying to revoke an already revoked API key.
+
+=cut
+
+1;
+```
+
+**Best Practices:**
+1. **Domain-Specific**: Create exceptions for specific domains (ApiKey, Patron, etc.)
+2. **Inheritance**: Use proper ISA relationships
+3. **POD Documentation**: Always include comprehensive POD documentation
+4. **Semantic Naming**: Exception names should clearly indicate the problem
+
+### System Preferences
+
+**Adding New System Preferences:**
+1. **Atomic Update**: Create atomic update script for existing installations
+2. **Mandatory Sysprefs**: Add to `installer/data/mysql/mandatory/sysprefs.sql` for fresh installations
+3. **Alphabetical Order**: Maintain strict alphabetical order in sysprefs.sql
+4. **Preference Template**: Add to appropriate `.pref` file in `koha-tmpl/intranet-tmpl/prog/en/modules/admin/preferences/`
+
+**System Preference Structure:**
+```sql
+('PreferenceName', 'default_value', 'options', 'Description text', 'Type'),
+```
+
+Types: `YesNo`, `Free`, `Choice`, `Integer`, `Float`, `Textarea`
+
+### QA Tools and Standards
+
+**Common QA Issues:**
+1. **File Permissions**: Atomic updates must be executable
+2. **POD Coverage**: All modules need comprehensive POD documentation
+3. **Alphabetical Order**: System preferences must be in correct alphabetical order
+4. **HEA Considerations**: New system preferences require HEA consideration comments
+5. **Forbidden Patterns**: QA tools check for specific patterns and requirements
+
+**Running QA Tools:**
+```bash
+# Inside KTD
+/kohadevbox/qa-test-tools/koha-qa.pl -c NUMBER_OF_COMMITS -v 2
+```
+
+**QA Tool Output Levels:**
+- **PASS**: All checks passed
+- **WARN**: Non-blocking warnings
+- **FAIL**: Blocking issues that must be fixed
+- **SKIP**: Tests skipped (usually due to missing files or conditions)
+
 ### Perl Best Practices
 
 **Modern Perl Usage:**
@@ -1003,6 +1244,30 @@ This guide covers:
 
 ### Plugin Lifecycle Methods
 
+## Commit Standards
+
+### Koha Core Development
+
+**Standard Commit Message Format:**
+```
+Bug XXXXX: Brief description of the change
+
+Detailed explanation of what the change does and why.
+Include any relevant technical details.
+
+Test plan:
+1. Step-by-step instructions for testing
+2. Expected results
+3. Edge cases to verify
+```
+
+**Follow-up Commits:**
+```
+Bug XXXXX: (follow-up) Brief description of the fix
+
+Explanation of what QA issue or problem this addresses.
+```
+
 ### Rapido ILL Commit Format
 
 **Subject Line Format:**
@@ -1168,6 +1433,31 @@ journalctl -u plugin-task-queue -f
 grep "sync_requests" /var/log/syslog
 ```
 
+**Database Trigger Debugging:**
+```bash
+# Inside KTD - View trigger definitions
+ktd --shell --run "koha-mysql kohadev -e 'SHOW CREATE TRIGGER trigger_name;'"
+
+# Check trigger execution errors in MySQL error log
+ktd --shell --run "tail -f /var/log/mysql/error.log"
+
+# Test trigger behavior with sample data
+ktd --shell --run "koha-mysql kohadev -e 'INSERT INTO borrowers (cardnumber, userid) VALUES (\"test123\", \"test456\");'"
+
+# Verify trigger_exists utility function
+ktd --shell --run "cd /kohadevbox/koha && perl -MC4::Installer=trigger_exists -e 'print \"Trigger exists: \" . (trigger_exists(\"trg_borrowers_cardnumber_userid_insert\") ? \"YES\" : \"NO\") . \"\\n\";'"
+
+# Test database backup includes triggers
+ktd --shell --run "mysqldump -hdb -uroot -ppassword koha_kohadev > /tmp/backup.sql"
+ktd --shell --run "grep -c 'CREATE.*TRIGGER' /tmp/backup.sql"
+
+# Test trigger restoration from backup
+ktd --shell --run "mysql -hdb -uroot -ppassword -e 'CREATE DATABASE test_triggers;'"
+ktd --shell --run "mysql -hdb -uroot -ppassword test_triggers < /tmp/backup.sql"
+ktd --shell --run "mysql -hdb -uroot -ppassword test_triggers -e 'SHOW TRIGGERS;' | wc -l"
+ktd --shell --run "mysql -hdb -uroot -ppassword -e 'DROP DATABASE test_triggers;'"
+```
+
 **Configuration Validation:**
 ```perl
 # Test configuration loading
@@ -1193,6 +1483,21 @@ print Dumper($config);
 3. **Configuration-driven behavior** with YAML and defaults
 4. **Transaction safety** for all database operations
 5. **Comprehensive logging** for debugging and monitoring
+
+### CSS/SCSS Development
+
+When modifying SCSS files in Koha, the compiled CSS assets must be rebuilt:
+
+```bash
+# Within KTD environment
+ktd --shell --run 'cd /kohadevbox/koha && npm run css:build'
+```
+
+**Important**: 
+- SCSS source files are in `koha-tmpl/*/prog/css/src/`
+- Compiled CSS files are gitignored (auto-generated)
+- Always rebuild after SCSS changes before testing
+- Use `npm run css:build` (not yarn) to avoid gulp dependency issues
 
 ### Code Quality
 1. **Mandatory code formatting** with Koha standards
