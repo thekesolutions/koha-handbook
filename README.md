@@ -126,6 +126,17 @@ This guide covers:
 - Authentication/authorization patterns, plugin route registration, and API extension mechanisms
 - Performance optimizations, development patterns, and advanced features (streaming, bulk operations)
 
+### Search Architecture
+
+For detailed understanding of Koha's Elasticsearch integration and search system, see:
+**[Koha Search Architecture: Elasticsearch Integration and Field Mapping](koha_search_architecture.md)**
+
+This guide covers:
+- ElasticsearchMARCFormat options (base64ISO2709 vs ARRAY) and their implications
+- Search field mapping system, database structure, and query behavior
+- Standard vs whole record search functionality and 856 field searchability
+- Performance considerations, troubleshooting, and best practices for search optimization
+
 ### ActionHandler Pattern (Rapido ILL Example)
 
 **Separation of Concerns:**
@@ -1243,8 +1254,6 @@ This guide covers:
 - Best practices for performance, error handling, and maintainability
 
 ### Plugin Lifecycle Methods
-
-## Commit Standards
 
 ### Koha Core Development
 
