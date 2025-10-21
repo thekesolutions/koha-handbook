@@ -395,6 +395,15 @@ sub tool {
 }
 ```
 
+**Template Wrapper:**
+Koha provides a template wrapper for plugins that will automatically make the breadcrumbs, set the correct search bar, and set the correct aside. 
+
+```perl
+[% WRAPPER "wrapper-staff-tool-plugin.inc" method="{configure||tool||report}" plugin_title="{Plugin Title}" %]
+#Content
+[% END %]<!--end wrapper-->
+```
+
 ## Hook System Integration
 
 ### Available Hooks
