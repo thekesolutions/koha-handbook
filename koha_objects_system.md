@@ -364,3 +364,322 @@ my @pk = $patron->id;
 ```
 
 This dual-layer architecture provides Koha with both the power of DBIx::Class and the convenience of a business-logic-aware object system, making it easier to maintain data consistency while providing rich functionality for both core development and plugin creation.
+
+## The Koha::Object(s)::Limit::Library Pattern
+
+### Overview
+
+The `Koha::Object::Limit::Library` and `Koha::Objects::Limit::Library` pattern provides a standardized way to implement library-specific restrictions on Koha objects. This pattern allows certain objects (like item types, authorized values, patron categories) to be limited to specific libraries, enabling multi-tenant functionality within a single Koha installation.
+
+### Architecture Components
+
+#### 1. Mixin Classes
+- **`Koha::Object::Limit::Library`**: Provides library limitation functionality for individual objects
+- **`Koha::Objects::Limit::Library`**: Provides library-aware search functionality for object collections
+
+#### 2. Database Structure
+Library limitations are stored in dedicated junction tables following the pattern:
+- **Table naming**: `{object_type}_branches` (e.g., `itemtypes_branches`, `authorised_values_branches`)
+- **Columns**: Object identifier + `branchcode`
+- **Relationships**: Foreign keys to both the main object table and the `branches` table
+
+### Implementation Pattern
+
+#### Step 1: Object Class Setup
+```perl
+package Koha::ItemType;
+use base qw(Koha::Object Koha::Object::Limit::Library);
+
+# Configure the library limits mapping
+sub _library_limits {
+    return {
+        class   => "ItemtypesBranch",    # DBIC Result class name
+        id      => "itemtype",           # Object identifier column
+        library => "branchcode",         # Library identifier column
+    };
+}
+```
+
+#### Step 2: Collection Class Setup
+```perl
+package Koha::ItemTypes;
+use base qw(Koha::Objects Koha::Objects::Limit::Library);
+
+# The collection automatically inherits library-aware search methods
+```
+
+#### Step 3: Database Schema
+```sql
+-- Junction table for library limits
+CREATE TABLE itemtypes_branches (
+    itemtype VARCHAR(10) NOT NULL,
+    branchcode VARCHAR(10) NOT NULL,
+    PRIMARY KEY (itemtype, branchcode),
+    FOREIGN KEY (itemtype) REFERENCES itemtypes(itemtype) ON DELETE CASCADE,
+    FOREIGN KEY (branchcode) REFERENCES branches(branchcode) ON DELETE CASCADE
+);
+```
+
+#### Step 4: DBIC Result Class
+```perl
+package Koha::Schema::Result::ItemtypesBranch;
+use base 'DBIx::Class::Core';
+
+__PACKAGE__->table("itemtypes_branches");
+__PACKAGE__->add_columns(
+    "itemtype",   { data_type => "varchar", is_foreign_key => 1, size => 10 },
+    "branchcode", { data_type => "varchar", is_foreign_key => 1, size => 10 },
+);
+
+# Relationships to parent objects
+__PACKAGE__->belongs_to("itemtype", "Koha::Schema::Result::Itemtype", 
+    { itemtype => "itemtype" });
+__PACKAGE__->belongs_to("branchcode", "Koha::Schema::Result::Branch", 
+    { branchcode => "branchcode" });
+```
+
+### API Methods
+
+#### Individual Object Methods (Koha::Object::Limit::Library)
+
+##### Managing Library Limits
+```perl
+# Add a library limit
+$itemtype->add_library_limit('CPL');
+
+# Remove a library limit  
+$itemtype->del_library_limit('CPL');
+
+# Replace all library limits
+$itemtype->replace_library_limits(['CPL', 'MPL']);
+
+# Get/set library limits (dual-purpose accessor)
+my $limits = $itemtype->library_limits();           # Returns Koha::Libraries
+$itemtype->library_limits(['CPL', 'MPL']);          # Sets limits
+
+# Get current library limits
+my $libraries = $itemtype->get_library_limits();    # Returns Koha::Libraries or undef
+```
+
+#### Collection Methods (Koha::Objects::Limit::Library)
+
+##### Library-Aware Searching
+```perl
+# Search respecting library limits for current user's library
+my $itemtypes = Koha::ItemTypes->search_with_library_limits(
+    { description => { -like => '%book%' } },  # Search parameters
+    { order_by => 'description' },             # Search attributes  
+    'CPL'                                      # Library code (optional)
+);
+
+# If no library specified, uses current user's library from context
+my $itemtypes = Koha::ItemTypes->search_with_library_limits(
+    { description => { -like => '%book%' } }
+);
+```
+
+### Practical Usage Examples
+
+#### Example 1: ItemType with Library Limits
+```perl
+# Create an item type limited to specific libraries
+my $itemtype = Koha::ItemType->new({
+    itemtype => 'LOCALBOOK',
+    description => 'Local Collection Books'
+})->store();
+
+# Limit to two libraries
+$itemtype->library_limits(['MAIN', 'BRANCH1']);
+
+# Check current limits
+my $limited_libraries = $itemtype->library_limits();
+if ($limited_libraries) {
+    say "Limited to: " . join(', ', map { $_->branchname } $limited_libraries->as_list);
+} else {
+    say "Available to all libraries";
+}
+
+# Search for item types available to a specific library
+my $available_itemtypes = Koha::ItemTypes->search_with_library_limits(
+    {},                    # No additional filters
+    { order_by => 'description' },
+    'BRANCH1'             # Library code
+);
+```
+
+#### Example 2: AuthorisedValue with Library Limits
+```perl
+# Create an authorized value with library restrictions
+my $av = Koha::AuthorisedValue->new({
+    category => 'LOC',
+    authorised_value => 'SPECIAL',
+    lib => 'Special Collection'
+})->store();
+
+# Limit to main library only
+$av->add_library_limit('MAIN');
+
+# Search for authorized values available to current user's library
+my $available_values = Koha::AuthorisedValues->search_with_library_limits(
+    { category => 'LOC' }
+);
+```
+
+### Search Logic Details
+
+The `search_with_library_limits` method implements an inclusive OR logic:
+- Returns objects with **no library limits** (available to all libraries)
+- **OR** objects with limits that **include** the specified library
+
+```sql
+-- Generated SQL logic
+SELECT * FROM itemtypes 
+LEFT JOIN itemtypes_branches ON itemtypes.itemtype = itemtypes_branches.itemtype
+WHERE (
+    itemtypes_branches.branchcode IS NULL     -- No limits = available to all
+    OR itemtypes_branches.branchcode = 'CPL'  -- Or specifically limited to CPL
+)
+```
+
+### Integration with Koha Features
+
+#### Template Integration
+```perl
+# In a template toolkit template
+[% FOREACH itemtype IN itemtypes %]
+    <option value="[% itemtype.itemtype | html %]">
+        [% itemtype.description | html %]
+    </option>
+[% END %]
+
+# The controller would use:
+my $itemtypes = Koha::ItemTypes->search_with_library_limits(
+    {},
+    { order_by => 'description' },
+    C4::Context->userenv->{branch}
+);
+```
+
+#### REST API Integration
+```perl
+# In a REST API endpoint
+sub list {
+    my $c = shift->openapi->valid_input or return;
+    
+    my $itemtypes = Koha::ItemTypes->search_with_library_limits(
+        {},
+        { order_by => 'description' },
+        $c->stash('koha.user')->branchcode
+    );
+    
+    return $c->render(status => 200, openapi => $itemtypes);
+}
+```
+
+### Error Handling
+
+The pattern includes built-in exception handling:
+
+```perl
+use Try::Tiny;
+
+try {
+    $itemtype->add_library_limit('INVALID_BRANCH');
+} catch {
+    if (blessed $_ && $_->isa('Koha::Exceptions::CannotAddLibraryLimit')) {
+        warn "Failed to add library limit: " . $_->message;
+    }
+};
+```
+
+### Performance Considerations
+
+#### Efficient Queries
+- Library limit checks use LEFT JOINs to maintain performance
+- Indexes on junction tables improve query speed
+- The pattern avoids N+1 query problems through proper JOIN usage
+
+#### Caching Strategies
+```perl
+# Library limits are typically cached at the application level
+my $cache_key = "itemtype_limits_" . $itemtype->itemtype;
+my $limits = $cache->get_from_cache($cache_key);
+unless ($limits) {
+    $limits = $itemtype->library_limits();
+    $cache->set_in_cache($cache_key, $limits, { expiry => 300 });
+}
+```
+
+### Testing the Pattern
+
+#### Unit Test Example
+```perl
+# Test library limits functionality
+my $itemtype = $builder->build_object({ class => 'Koha::ItemTypes' });
+my $library1 = $builder->build_object({ class => 'Koha::Libraries' });
+my $library2 = $builder->build_object({ class => 'Koha::Libraries' });
+
+# Add library limit
+$itemtype->add_library_limit($library1->branchcode);
+
+# Test search with limits
+my $results = Koha::ItemTypes->search_with_library_limits(
+    { itemtype => $itemtype->itemtype },
+    {},
+    $library1->branchcode
+);
+is($results->count, 1, 'Item type found for authorized library');
+
+$results = Koha::ItemTypes->search_with_library_limits(
+    { itemtype => $itemtype->itemtype },
+    {},
+    $library2->branchcode  
+);
+is($results->count, 0, 'Item type not found for unauthorized library');
+```
+
+### Best Practices
+
+#### 1. Consistent Naming
+- Junction tables: `{object_type}_branches`
+- DBIC classes: `{ObjectType}sBranch`
+- Always use `branchcode` for the library column
+
+#### 2. Transaction Safety
+```perl
+# Always use transactions when modifying limits
+$schema->txn_do(sub {
+    $object->replace_library_limits(\@new_limits);
+});
+```
+
+#### 3. User Context Awareness
+```perl
+# Always consider the current user's library context
+my $user_library = C4::Context->userenv->{branch};
+my $results = $objects->search_with_library_limits({}, {}, $user_library);
+```
+
+#### 4. Documentation
+```perl
+=head3 _library_limits
+
+Configure library limits for this object type.
+
+Returns a hashref with:
+- class: The DBIC Result class for the junction table
+- id: The column name for this object's identifier  
+- library: The column name for the library identifier (usually 'branchcode')
+
+=cut
+
+sub _library_limits {
+    return {
+        class   => "ItemtypesBranch",
+        id      => "itemtype", 
+        library => "branchcode",
+    };
+}
+```
+
+This pattern provides a robust, standardized approach to implementing library-specific restrictions across different object types in Koha, ensuring consistent behavior and maintainable code.
