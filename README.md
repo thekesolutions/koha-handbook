@@ -545,6 +545,33 @@ sub configuration {
 
 ## Coding Standards
 
+### GPL License Headers
+
+**All Koha files must include the standard GPL header:**
+```perl
+#!/usr/bin/perl
+
+# This file is part of Koha.
+#
+# Koha is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# Koha is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Koha; if not, see <https://www.gnu.org/licenses>.
+```
+
+**Requirements:**
+- Must use HTTPS URL: `<https://www.gnu.org/licenses>`
+- Required for all `.pm`, `.pl`, and `.t` files
+- Place immediately after shebang line
+
 ### Code Formatting
 
 **Mandatory**: Use Koha's tidy.pl for all Perl code:
@@ -794,21 +821,23 @@ use Koha::DateUtils qw( dt_from_string );
 
 **Exception Handling:**
 ```perl
-# ✅ CORRECT - Use Try::Tiny
+# ✅ CORRECT - Use Try::Tiny with Koha::Logger
+use Koha::Logger;
+
 return try {
     # Code that might fail
 } catch {
     # Handle exception
-    warn "Error: $_";
+    Koha::Logger->get->error("Error: $_");
     return { error => 1, message => "$_" };
 };
 
-# ❌ WRONG - Don't use eval
+# ❌ WRONG - Don't use eval or warn
 eval {
     # Code
 };
 if ($@) {
-    # Handle error
+    warn "Error: $@";  # Don't use warn
 }
 ```
 
