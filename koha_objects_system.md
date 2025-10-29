@@ -683,3 +683,89 @@ sub _library_limits {
 ```
 
 This pattern provides a robust, standardized approach to implementing library-specific restrictions across different object types in Koha, ensuring consistent behavior and maintainable code.
+
+## Library Limits UI Enforcement
+
+### Overview
+
+Library limits are enforced at multiple levels in the user interface to ensure users only see and can use objects that are available to their current library context.
+
+### Admin Interface (Configuration)
+
+#### Form Input Pattern
+```html
+<label for="library_limitation">Library limitation: </label>
+<select id="library_limitation" name="branches" multiple size="10">
+    [% PROCESS options_for_libraries libraries => Branches.all( 
+        selected => object.get_library_limits, 
+        unfiltered => 1, 
+        do_not_select_my_library => 1 
+    ) %]
+</select>
+<div class="hint">Limits the use of this object to the selected libraries.</div>
+```
+
+#### List Display Pattern
+```html
+[% IF library_limits.count > 0 %]
+    <span class="library_limitation" data-bs-toggle="tooltip" title="[% library_str | html %]">
+        [% IF library_limits.count > 1 %]
+            <span>[% library_limits.count | html %] library limitations</span>
+        [% ELSE %]
+            <span>[% library_limits.count | html %] library limitation</span>
+        [% END %]
+    </span>
+[% ELSE %]
+    <span>No limitation</span>
+[% END %]
+```
+
+### User-Facing Interface (Enforcement)
+
+#### Backend Enforcement Pattern
+```perl
+# Replace direct searches
+my $objects = Koha::Objects->search({ ... });
+
+# With library-aware searches
+my $objects = Koha::Objects->search_with_library_limits(
+    { ... },                              # Search parameters
+    { order_by => 'name' },              # Search attributes  
+    C4::Context->userenv->{branch}       # Current user's library
+);
+```
+
+#### Safe Library Context Detection
+```perl
+my $library = C4::Context->userenv->{branch} if C4::Context->userenv;
+my $objects = $library 
+    ? Koha::Objects->search_with_library_limits($params, $attrs, $library)
+    : Koha::Objects->search($params, $attrs);  # Fallback for system context
+```
+
+### Implementation Requirements
+
+#### Admin Interface Changes
+- Add library limitation form field (multi-select dropdown)
+- Process form data with `replace_library_limits()`
+- Display current limitations in object lists with tooltips
+- Show limitation counts and specific library names
+
+#### User Interface Changes  
+- Replace all direct searches with `search_with_library_limits`
+- Pass user's library context from `C4::Context->userenv->{branch}`
+- Handle undefined library context gracefully
+
+#### Form Processing Pattern
+```perl
+# Get selected libraries from form
+my @branches = grep { $_ ne q{} } $input->multi_param('branches');
+
+# Save with transaction safety
+eval {
+    $object->store;
+    $object->replace_library_limits( \@branches );
+};
+```
+
+This enforcement ensures users only see objects available to their library while providing administrators full control over library-specific restrictions.
