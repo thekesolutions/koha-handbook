@@ -557,4 +557,59 @@ sub export {
 }
 ```
 
+## API Specification Management
+
+### OpenAPI Bundle Generation
+
+**Critical Requirement**: After making any changes to OpenAPI specification files, you **must** regenerate the API bundle for the changes to take effect.
+
+#### When to Rebuild the Bundle
+
+Rebuild the API bundle whenever you modify:
+- `api/v1/swagger/swagger.yaml` (main specification)
+- `api/v1/swagger/paths/*.yaml` (endpoint definitions)
+- `api/v1/swagger/definitions/*.yaml` (schema definitions)
+- `api/v1/swagger/parameters/*.yaml` (parameter definitions)
+
+#### How to Rebuild in KTD
+
+```bash
+# In KTD environment (required for dependencies)
+ktd --shell --run "cd /kohadevbox/koha && yarn api:bundle"
+```
+
+#### What This Does
+
+The `yarn api:bundle` command:
+1. Reads the main `swagger.yaml` specification
+2. Resolves all `$ref` references to external files
+3. Generates `api/v1/swagger/swagger_bundle.json` (gitignored, build artifact)
+4. Validates the complete specification for syntax errors
+
+#### Common Issues
+
+**404 Errors in API Tests**: If your new endpoints return 404 in tests, you likely forgot to rebuild the bundle.
+
+**Syntax Errors**: The bundling process will catch YAML syntax errors and invalid OpenAPI specifications.
+
+**Missing Dependencies**: The `redocly` CLI tool is only available in KTD with proper Node.js dependencies installed.
+
+#### Development Workflow
+
+```bash
+# 1. Make changes to OpenAPI files
+vim api/v1/swagger/paths/my_endpoint.yaml
+
+# 2. Rebuild bundle in KTD
+ktd --shell --run "cd /kohadevbox/koha && yarn api:bundle"
+
+# 3. Test your changes
+ktd --shell --run "cd /kohadevbox/koha && prove t/db_dependent/api/v1/my_test.t"
+
+# 4. Run QA tools
+ktd --shell --run "cd /kohadevbox/koha && /kohadevbox/qa-test-tools/koha-qa.pl -c 2"
+```
+
+**Note**: The `swagger_bundle.json` file is automatically generated and should not be manually edited or committed to git.
+
 This architecture provides Koha with a modern, standards-compliant REST API that seamlessly integrates with the existing Koha Object system while maintaining performance, security, and extensibility through the plugin system.
