@@ -612,4 +612,221 @@ ktd --shell --run "cd /kohadevbox/koha && /kohadevbox/qa-test-tools/koha-qa.pl -
 
 **Note**: The `swagger_bundle.json` file is automatically generated and should not be manually edited or committed to git.
 
+## Confirmation Flow Pattern
+
+The Koha REST API implements a two-step confirmation flow for operations that require user acknowledgment of warnings or special conditions. This pattern is used for checkouts and other operations where the system needs to inform the user about potential issues before proceeding.
+
+### Overview
+
+The confirmation flow uses JWT tokens to securely encode the exact conditions that existed at the time of the availability check, preventing race conditions and replay attacks.
+
+### Flow Diagram
+
+```
+Client                          API Server
+  |                                |
+  |  GET /checkouts/availability   |
+  |------------------------------->|
+  |                                | Check availability
+  |                                | Generate JWT token
+  |  200 OK + confirmation_token   |
+  |<-------------------------------|
+  |                                |
+  | User reviews confirmations     |
+  |                                |
+  |  POST /checkouts               |
+  |  + confirmation token          |
+  |------------------------------->|
+  |                                | Validate token
+  |                                | Perform checkout
+  |  201 Created                   |
+  |<-------------------------------|
+```
+
+### Step 1: Check Availability
+
+**Endpoint**: `GET /api/v1/checkouts/availability`
+
+**Parameters**:
+- `patron_id` - The patron attempting to checkout
+- `item_id` - The item to checkout
+
+**Response** (200 OK):
+```json
+{
+  "blockers": {},
+  "confirms": {
+    "RESERVED": {
+      "patron_id": 456,
+      "patron_name": "Jane Doe"
+    },
+    "TOO_MANY": 5
+  },
+  "warnings": {
+    "DEBT": "10.50"
+  },
+  "confirmation_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+**Response Categories**:
+
+- **blockers**: Conditions that prevent the operation (returns 403 if present)
+  - Examples: `DEBARRED`, `EXPIRED`, `CARD_LOST`, `ITEM_LOST`
+  
+- **confirms**: Conditions requiring user confirmation
+  - Examples: `RESERVED` (item on hold for another patron), `TOO_MANY` (patron has many checkouts), `DEBT` (patron has fines)
+  
+- **warnings**: Informational messages that don't prevent the operation
+  - Examples: `AGE_RESTRICTION`, `ADDITIONAL_MATERIALS`
+
+**Token Generation**:
+```perl
+# Controller generates token from confirmation keys
+my @confirm_keys = sort keys %{$confirmation};
+unshift @confirm_keys, $item->id;
+unshift @confirm_keys, $user->id;
+
+my $token = Koha::Token->new->generate_jwt({ 
+    id => join(':', @confirm_keys) 
+});
+```
+
+### Step 2: Perform Operation with Confirmation
+
+**Endpoint**: `POST /api/v1/checkouts`
+
+**Body**:
+```json
+{
+  "patron_id": 123,
+  "item_id": 789,
+  "confirmation": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+**Token Validation**:
+```perl
+if (keys %{$confirmation}) {
+    my $confirmed = 0;
+    
+    if (my $token = $c->param('confirmation')) {
+        # Rebuild the same key string
+        my $confirm_keys = join(":", sort keys %{$confirmation});
+        $confirm_keys = $user->id . ":" . $item->id . ":" . $confirm_keys;
+        
+        # Verify JWT matches
+        $confirmed = Koha::Token->new->check_jwt({ 
+            id => $confirm_keys, 
+            token => $token 
+        });
+    }
+    
+    unless ($confirmed) {
+        return $c->render(
+            status => 412,
+            openapi => { error => "Confirmation error" }
+        );
+    }
+}
+```
+
+**Response** (201 Created):
+```json
+{
+  "checkout_id": 12345,
+  "patron_id": 123,
+  "item_id": 789,
+  "due_date": "2026-02-15T23:59:59Z",
+  ...
+}
+```
+
+### HTTP Status Codes
+
+- **200 OK**: Availability checked successfully
+- **201 Created**: Operation completed successfully
+- **403 Forbidden**: Blockers prevent the operation
+- **412 Precondition Failed**: Confirmations required but token missing/invalid
+- **409 Conflict**: Resource not found (patron/item)
+
+### Security Considerations
+
+1. **Token Binding**: The JWT token includes:
+   - User ID (who is performing the operation)
+   - Item ID (what is being operated on)
+   - Confirmation keys (what conditions existed)
+
+2. **Replay Prevention**: The token is only valid for the specific combination of user, item, and conditions
+
+3. **Race Condition Protection**: If conditions change between availability check and operation, the token validation will fail
+
+4. **Token Expiration**: JWT tokens have a built-in expiration time
+
+### Implementation Example
+
+```perl
+# In controller
+sub get_availability {
+    my $c = shift->openapi->valid_input or return;
+    
+    my $patron = Koha::Patrons->find($c->param('patron_id'));
+    my $item = Koha::Items->find($c->param('item_id'));
+    
+    # Use availability class
+    my $result = $item->checkout_availability({ patron => $patron });
+    
+    # Generate token from confirmation keys
+    my @confirm_keys = sort keys %{$result->confirmations};
+    unshift @confirm_keys, $item->id;
+    unshift @confirm_keys, $c->stash('koha.user')->id;
+    
+    my $token = Koha::Token->new->generate_jwt({ 
+        id => join(':', @confirm_keys) 
+    });
+    
+    return $c->render(
+        status => 200,
+        openapi => {
+            blockers => $result->blockers,
+            confirms => $result->confirmations,
+            warnings => $result->warnings,
+            confirmation_token => $token
+        }
+    );
+}
+```
+
+### Client Implementation Guidelines
+
+1. **Always check availability first** before attempting the operation
+2. **Display confirmations to the user** with clear explanations
+3. **Include the token** when user confirms they want to proceed
+4. **Handle 412 responses** by re-checking availability (conditions may have changed)
+5. **Don't cache tokens** - they are single-use and time-limited
+
+### Public vs Staff Interface
+
+For public (OPAC) interfaces, some confirmations are upgraded to blockers:
+
+```perl
+if ($c->stash('is_public')) {
+    # Upgrade confirmations to blockers for public interface
+    my @should_block = qw/TOO_MANY ISSUED_TO_ANOTHER RESERVED 
+                          RESERVE_WAITING TRANSFERRED PROCESSING 
+                          AGE_RESTRICTION/;
+    
+    for my $block (@should_block) {
+        if (exists($confirmation->{$block})) {
+            $impossible->{$block} = $confirmation->{$block};
+            delete $confirmation->{$block};
+        }
+    }
+}
+```
+
+This ensures patrons cannot override certain restrictions that require staff intervention.
+
+## API Specification Management
+
 This architecture provides Koha with a modern, standards-compliant REST API that seamlessly integrates with the existing Koha Object system while maintaining performance, security, and extensibility through the plugin system.
