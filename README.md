@@ -405,7 +405,7 @@ Koha::Database->schema->storage->txn_do(
 
 ## Testing framework
 
-For comprehensive testing patterns, mocking, and best practices, see:
+For testing patterns, mocking, and best practices, see:
 **[Koha testing framework](koha_testing_framework.md)**
 
 This guide covers:
@@ -413,7 +413,7 @@ This guide covers:
 - TestBuilder naming conventions
 - Database-dependent test templates
 - Exception testing and mocking patterns
-- Logger testing with t::lib::Mocks::Logger
+- Logger testing with `t::lib::Mocks::Logger`
 
 ## Plugin development
 
