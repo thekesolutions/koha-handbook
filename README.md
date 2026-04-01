@@ -322,26 +322,43 @@ Exception thrown when trying to revoke an already revoked API key.
 
 Types: `YesNo`, `Free`, `Choice`, `Integer`, `Float`, `Textarea`
 
-### QA tools and standards
+### Quality assurance
 
-**Common QA Issues:**
-1. **File Permissions**: Atomic updates must be executable
-2. **POD Coverage**: All modules need comprehensive POD documentation
-3. **Alphabetical Order**: System preferences must be in correct alphabetical order
-4. **HEA Considerations**: New system preferences require HEA consideration comments
-5. **Forbidden Patterns**: QA tools check for specific patterns and requirements
+The `koha-qa.pl` script runs a suite of checks on your commits: coding standards, POD coverage, forbidden patterns, file permissions, and more.
 
-**Running QA Tools:**
+**Running QA on Koha core patches:**
 ```bash
-# Inside KTD
-/kohadevbox/qa-test-tools/koha-qa.pl -c NUMBER_OF_COMMITS -v 2
+# Inside KTD — check the last N commits
+ktd --shell --run "/kohadevbox/qa-test-tools/koha-qa.pl -c 2 -v 2"
+
+# Check a specific range
+ktd --shell --run "/kohadevbox/qa-test-tools/koha-qa.pl -c 5 -v 2"
 ```
 
-**QA Tool Output Levels:**
-- **PASS**: All checks passed
-- **WARN**: Non-blocking warnings
-- **FAIL**: Blocking issues that must be fixed
-- **SKIP**: Tests skipped (usually due to missing files or conditions)
+**Running QA on plugin commits:**
+
+Plugins live outside the Koha source tree, so you need to tell the QA tools where to find the files:
+
+```bash
+ktd --name rapido --shell --run "
+  cd /kohadevbox/plugins/rapido-ill &&
+  /kohadevbox/qa-test-tools/koha-qa.pl -c 1 -v 2
+"
+```
+
+**Output levels:**
+- **PASS**: all checks passed
+- **WARN**: non-blocking warnings (review but not necessarily fix)
+- **FAIL**: blocking issues that must be fixed before sign-off
+- **SKIP**: checks skipped (missing files or not applicable)
+
+**Common issues caught by QA tools:**
+- Missing or incorrect GPL license headers
+- POD coverage gaps in `.pm` files
+- `use` of forbidden modules or patterns
+- Atomic update files not executable
+- System preferences not in alphabetical order
+- Trailing whitespace, tabs vs spaces
 
 ### Perl best practices
 
