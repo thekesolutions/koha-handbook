@@ -26,7 +26,10 @@ export LOCAL_USER_ID=$(id -u)
 
 **KTD Workflow:**
 ```bash
-# 1. Launch
+# 1. Start the proxy (once, shared across instances)
+ktd_proxy --start
+
+# 2. Launch
 ktd --proxy up -d
 
 # 2. Wait for readiness
