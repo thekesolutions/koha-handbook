@@ -48,7 +48,7 @@ ktd --shell --run "cd /kohadevbox/koha && perl installer/data/mysql/updatedataba
 ktd --shell --run "koha-mysql kohadev"
 
 # Execute SQL commands directly
-ktd --shell --run "koha-mysql kohadev -e 'SHOW TRIGGERS LIKE \"borrowers\";'"
+ktd --shell --run "koha-mysql kohadev -e 'SELECT COUNT(*) FROM biblio;'"
 
 # Database backup and restore testing
 ktd --shell --run "mysqldump -hdb -uroot -ppassword koha_kohadev > /tmp/backup.sql"
@@ -222,59 +222,6 @@ Test plan:
 3. **Comprehensive Testing**: Each TODO resolution should include tests
 4. **Clear Documentation**: Explain what was changed and why
 5. **Follow-up Commits**: Use consistent commit message format
-
-**Creating Database Triggers in Atomic Updates:**
-```perl
-use Modern::Perl;
-use C4::Installer qw( trigger_exists );
-use Koha::Installer::Output qw(say_warning say_success say_info);
-
-return {
-    bug_number  => "XXXXX",
-    description => "Add database triggers for data integrity",
-    up          => sub {
-        my ($args) = @_;
-        my ( $dbh, $out ) = @$args{qw(dbh out)};
-
-        # Check if trigger exists before creating
-        unless ( trigger_exists('my_trigger_name') ) {
-            $dbh->do(q{
-                CREATE TRIGGER my_trigger_name
-                    BEFORE INSERT ON table_name
-                    FOR EACH ROW
-                BEGIN
-                    -- Trigger logic here
-                    IF condition THEN
-                        SIGNAL SQLSTATE '45000'
-                        SET MESSAGE_TEXT = 'Koha::Exceptions::MyException';
-                    END IF;
-                END
-            });
-            say_success( $out, "Created trigger to enforce data integrity" );
-        }
-    },
-};
-```
-
-**Best Practices for Database Triggers:**
-1. **Always check existence** using `trigger_exists()` before creation
-2. **Use descriptive names** with consistent prefixes (e.g., `trg_tablename_purpose`)
-3. **Include both atomic update and kohastructure.sql** for new installations
-4. **Use SIGNAL SQLSTATE '45000'** for custom error messages
-5. **Follow Koha exception naming** patterns in error messages
-6. **Test trigger behavior** thoroughly before committing
-
-**Testing Database Triggers:**
-```bash
-# Inside KTD - Check if triggers exist
-ktd --shell --run "koha-mysql kohadev -e 'SHOW TRIGGERS LIKE \"table_name\";'"
-
-# Test trigger_exists function
-ktd --shell --run "cd /kohadevbox/koha && perl -MC4::Installer=trigger_exists -e 'print trigger_exists(\"trigger_name\") ? \"EXISTS\" : \"NOT FOUND\";'"
-
-# Run atomic updates
-ktd --shell --run "cd /kohadevbox/koha && perl installer/data/mysql/updatedatabase.pl"
-```
 
 **Structure and Best Practices:**
 
@@ -879,31 +826,6 @@ journalctl -u plugin-task-queue -f
 
 # Cron job logs
 grep "sync_requests" /var/log/syslog
-```
-
-**Database Trigger Debugging:**
-```bash
-# Inside KTD - View trigger definitions
-ktd --shell --run "koha-mysql kohadev -e 'SHOW CREATE TRIGGER trigger_name;'"
-
-# Check trigger execution errors in MySQL error log
-ktd --shell --run "tail -f /var/log/mysql/error.log"
-
-# Test trigger behavior with sample data
-ktd --shell --run "koha-mysql kohadev -e 'INSERT INTO borrowers (cardnumber, userid) VALUES (\"test123\", \"test456\");'"
-
-# Verify trigger_exists utility function
-ktd --shell --run "cd /kohadevbox/koha && perl -MC4::Installer=trigger_exists -e 'print \"Trigger exists: \" . (trigger_exists(\"trg_borrowers_cardnumber_userid_insert\") ? \"YES\" : \"NO\") . \"\\n\";'"
-
-# Test database backup includes triggers
-ktd --shell --run "mysqldump -hdb -uroot -ppassword koha_kohadev > /tmp/backup.sql"
-ktd --shell --run "grep -c 'CREATE.*TRIGGER' /tmp/backup.sql"
-
-# Test trigger restoration from backup
-ktd --shell --run "mysql -hdb -uroot -ppassword -e 'CREATE DATABASE test_triggers;'"
-ktd --shell --run "mysql -hdb -uroot -ppassword test_triggers < /tmp/backup.sql"
-ktd --shell --run "mysql -hdb -uroot -ppassword test_triggers -e 'SHOW TRIGGERS;' | wc -l"
-ktd --shell --run "mysql -hdb -uroot -ppassword -e 'DROP DATABASE test_triggers;'"
 ```
 
 **Configuration Validation:**
