@@ -136,7 +136,7 @@ See **[Koha Plugin Architecture — Configuration Management](plugin_architectur
 
 **All Koha files must include the standard GPL header:**
 ```perl
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # This file is part of Koha.
 #

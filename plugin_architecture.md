@@ -234,7 +234,7 @@ sub _validate_required_fields {
 
 **Generic Configuration Management Script Pattern:**
 ```perl
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 use Modern::Perl;
 use Getopt::Long;
