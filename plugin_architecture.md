@@ -1,8 +1,8 @@
-# Koha Plugin Architecture
+# Koha plugin architecture
 
 Comprehensive guide to Koha plugin development, covering the plugin framework, data storage, lifecycle management, and architectural patterns.
 
-## Plugin Framework Overview
+## Plugin framework overview
 
 Koha plugins extend the core functionality through a standardized framework built on `Koha::Plugins::Base`. The framework provides:
 
@@ -12,9 +12,9 @@ Koha plugins extend the core functionality through a standardized framework buil
 - **Hook System**: Integration points with core Koha functionality
 - **Configuration Management**: Persistent settings storage
 
-## Plugin Data Storage Methods
+## Plugin data storage methods
 
-### Core Storage API
+### Core storage API
 
 Koha plugins inherit from `Koha::Plugins::Base` which provides persistent data storage methods:
 
@@ -34,7 +34,7 @@ my $cached_data = $self->retrieve_data('cached_configuration');
 $self->store_data({ cached_configuration => undef });
 ```
 
-### Data Storage Characteristics
+### Data storage characteristics
 
 - **Persistent**: Data survives plugin upgrades and Koha restarts
 - **Plugin-specific**: Each plugin has its own data namespace
@@ -42,7 +42,7 @@ $self->store_data({ cached_configuration => undef });
 - **Serialization**: Complex data structures are automatically serialized
 - **Database-backed**: Stored in `plugin_data` table in Koha database
 
-### Configuration Management Pattern
+### Configuration management pattern
 
 **Standard Configuration Loading:**
 ```perl
@@ -103,9 +103,9 @@ sub _process_configuration {
 }
 ```
 
-## Plugin Lifecycle Methods
+## Plugin lifecycle methods
 
-### Essential Plugin Methods
+### Essential plugin methods
 
 ```perl
 package Koha::Plugin::Com::Company::PluginName;
@@ -170,7 +170,7 @@ sub uninstall {
 }
 ```
 
-### Version Management
+### Version management
 
 **Version Comparison:**
 ```perl
@@ -186,9 +186,9 @@ sub needs_upgrade {
 }
 ```
 
-## Configuration Validation
+## Configuration validation
 
-### Validation Framework
+### Validation framework
 
 ```perl
 sub check_configuration {
@@ -230,7 +230,7 @@ sub _validate_required_fields {
 }
 ```
 
-### Configuration Scripts
+### Configuration scripts
 
 **Generic Configuration Management Script Pattern:**
 ```perl
@@ -304,9 +304,9 @@ if ($load) {
 }
 ```
 
-## Plugin Database Integration
+## Plugin database integration
 
-### Custom Schema Classes
+### Custom schema classes
 
 **Plugin-Specific Objects:**
 ```perl
@@ -339,7 +339,7 @@ use Koha::Schema;
 Koha::Schema->register_class('PluginMyrecord', 'Koha::Schema::Result::PluginMyrecord');
 ```
 
-### Database Table Management
+### Database table management
 
 **Table Creation in install():**
 ```perl
@@ -364,9 +364,9 @@ sub install {
 }
 ```
 
-## Template Integration
+## Template integration
 
-### Plugin Templates
+### Plugin templates
 
 **Template Directory Structure:**
 ```
@@ -404,9 +404,9 @@ Koha provides a template wrapper for plugins that will automatically make the br
 [% END %]<!--end wrapper-->
 ```
 
-## Hook System Integration
+## Hook system integration
 
-### Available Hooks
+### Available hooks
 
 **Common Plugin Hooks:**
 ```perl
@@ -442,7 +442,7 @@ sub opac_results_xslt_variables {
 
 ## Avoiding "Subroutine redefined" Warnings
 
-### The Problem
+### The problem
 
 Plugins that ship their own library classes (e.g. `Koha::Object` subclasses, API clients, converters) under a `lib/` directory commonly hit "Subroutine redefined" warnings during `install_plugins.pl` or Plack startup. This happens when the same module is loaded twice via different `@INC` paths — for example, the plugin's `BEGIN` block adds `lib/` to `@INC` and eagerly `require`s classes, then the Controller `use`s them again through a path that resolves differently (e.g. symlinks in development environments).
 
@@ -452,7 +452,7 @@ Subroutine new redefined at .../lib/MyPlugin/Client.pm line 41.
 Subroutine process redefined at .../lib/MyPlugin/Converter.pm line 28.
 ```
 
-### The Solution: Factory Methods with Lazy Loading
+### The solution: factory methods with lazy loading
 
 Instead of having the Controller (or other consumers) directly `use` the library classes, the plugin class provides factory methods that `require` the class on first call. The Controller only `use`s the plugin class itself.
 
@@ -530,7 +530,7 @@ sub add {
 }
 ```
 
-### Key Rules
+### Key rules
 
 1. **BEGIN block**: only `@INC` setup and DBIC schema registration — nothing else
 2. **Guard `@INC`**: check for duplicates before `unshift` to handle symlinked plugin dirs
@@ -540,9 +540,9 @@ sub add {
 
 This pattern eliminates double-loading entirely because each library class is only ever `require`d through one code path — the factory method.
 
-## Best Practices
+## Best practices
 
-### Configuration Management
+### Configuration management
 
 1. **Always validate configuration** before storing
 2. **Use caching** for processed configuration
@@ -550,7 +550,7 @@ This pattern eliminates double-loading entirely because each library class is on
 4. **Clear cache** when configuration changes
 5. **Support configuration export/import** for deployment
 
-### Data Storage
+### Data storage
 
 1. **Use meaningful keys** for stored data
 2. **Version your data structures** for upgrades
@@ -558,7 +558,7 @@ This pattern eliminates double-loading entirely because each library class is on
 4. **Use transactions** for complex operations
 5. **Handle serialization errors** gracefully
 
-### Error Handling
+### Error handling
 
 1. **Validate all inputs** before processing
 2. **Provide meaningful error messages** to users
@@ -574,7 +574,7 @@ This pattern eliminates double-loading entirely because each library class is on
 4. **Clean up temporary data** regularly
 5. **Profile plugin performance** impact
 
-## Version Management
+## Version management
 
 **Version Numbering:**
 - Follow semantic versioning (MAJOR.MINOR.PATCH)
@@ -602,9 +602,9 @@ Use [Keep a Changelog](https://keepachangelog.com/) format. Every released versi
 
 Multiple issues in one commit are fine: `[#17] Foo [#19] Bar`
 
-## CI/CD & Automation
+## CI/CD & automation
 
-### GitHub Actions Workflow
+### GitHub Actions workflow
 
 **Multi-Version Testing Matrix:**
 ```yaml

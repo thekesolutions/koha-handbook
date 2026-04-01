@@ -1,19 +1,19 @@
-# Koha Development Handbook
+# Koha development handbook
 
 A comprehensive guide for Koha and plugin development, covering architecture, design patterns, coding standards, testing methodologies, and development environment setup.
 
-## Table of Contents
+## Table of contents
 
-1. [Development Environment](#development-environment)
-2. [Architecture & Design Patterns](#architecture--design-patterns)
-3. [Background Jobs System](background_jobs.md)
-4. [Coding Standards](#coding-standards)
-5. [Testing Framework](#testing-framework)
-6. [Plugin Development](#plugin-development)
-7. [Commit Standards](#commit-standards)
-8. [Operational Deployment](#operational-deployment)
+1. [Development environment](#development-environment)
+2. [Architecture & design patterns](#architecture--design-patterns)
+3. [Background jobs system](background_jobs.md)
+4. [Coding standards](#coding-standards)
+5. [Testing framework](#testing-framework)
+6. [Plugin development](#plugin-development)
+7. [Commit standards](#commit-standards)
+8. [Operational deployment](#operational-deployment)
 
-## Development Environment
+## Development environment
 
 ### Koha Testing Docker (KTD) Setup
 
@@ -62,7 +62,7 @@ ktd --shell --run "mysql -hdb -uroot -ppassword -e 'DROP DATABASE test_restore;'
 - `ktd` script location: `$KTD_HOME/bin/ktd`
 - All commands require `KTD_HOME` environment variable
 
-### Common Development Commands
+### Common development commands
 
 ```bash
 # Format code with Koha standards
@@ -72,9 +72,9 @@ ktd --shell --run "mysql -hdb -uroot -ppassword -e 'DROP DATABASE test_restore;'
 prove -v t/ t/db_dependent/
 ```
 
-## Architecture & Design Patterns
+## Architecture & design patterns
 
-### Koha Objects and DBIx::Class Integration
+### Koha objects and DBIx::Class integration
 
 For comprehensive understanding of Koha's object-relational mapping system, see:
 **[Koha Objects System: DBIx::Class Integration Architecture](koha_objects_system.md)**
@@ -85,7 +85,7 @@ This guide covers:
 - Object creation patterns, database operations, and performance considerations
 - Plugin development with custom objects and schema extensions
 
-### Template::Toolkit System Architecture
+### Template::Toolkit system architecture
 
 For detailed understanding of Koha's templating and internationalization system, see:
 **[Koha Template::Toolkit System Architecture](koha_template_toolkit.md)**
@@ -96,7 +96,7 @@ This guide covers:
 - Internationalization (i18n) patterns, translation workflows, and language detection
 - Plugin template integration, performance optimization, and development best practices
 
-### RESTful API Architecture
+### RESTful API architecture
 
 For comprehensive understanding of Koha's REST API built with Mojolicious and OpenAPI, see:
 **[Koha RESTful API Architecture: Mojolicious and OpenAPI Integration](koha_rest_api_architecture.md)**
@@ -107,7 +107,7 @@ This guide covers:
 - Authentication/authorization patterns, plugin route registration, and API extension mechanisms
 - Performance optimizations, development patterns, and advanced features (streaming, bulk operations)
 
-### Search Architecture
+### Search architecture
 
 For detailed understanding of Koha's Elasticsearch integration and search system, see:
 **[Koha Search Architecture: Elasticsearch Integration and Field Mapping](koha_search_architecture.md)**
@@ -126,13 +126,13 @@ For comprehensive understanding of Koha's object-relational mapping, see:
 For plugin-specific Koha::Object patterns (schema registration, naming conventions, factory methods), see:
 **[Koha Plugin Architecture](plugin_architecture.md)**
 
-### Configuration Management
+### Configuration management
 
 See **[Koha Plugin Architecture — Configuration Management](plugin_architecture.md)** for YAML-based configuration patterns, caching, validation, and management scripts.
 
-## Coding Standards
+## Coding standards
 
-### GPL License Headers
+### GPL license headers
 
 **All Koha files must include the standard GPL header:**
 ```perl
@@ -159,7 +159,7 @@ See **[Koha Plugin Architecture — Configuration Management](plugin_architectur
 - Required for all `.pm`, `.pl`, and `.t` files
 - Place immediately after shebang line
 
-### Code Formatting
+### Code formatting
 
 **Mandatory**: Use Koha's tidy.pl for all Perl code:
 ```bash
@@ -180,7 +180,7 @@ find . -name "*.bak" -delete
 4. Run tests to verify
 5. Commit clean code
 
-### TODO Item Management
+### TODO item management
 
 **Tracking TODO Items in Commits:**
 When commits include TODO sections, track progress systematically:
@@ -313,7 +313,7 @@ return {
    - Permissions: "Added new permission 'XXX'"
    - Letters: "Added new letter 'XXX' (TRANSPORT)"
 
-### Exception Handling
+### Exception handling
 
 **Creating Domain-Specific Exceptions:**
 
@@ -360,7 +360,7 @@ Exception thrown when trying to revoke an already revoked API key.
 3. **POD Documentation**: Always include comprehensive POD documentation
 4. **Semantic Naming**: Exception names should clearly indicate the problem
 
-### System Preferences
+### System preferences
 
 **Adding New System Preferences:**
 1. **Atomic Update**: Create atomic update script for existing installations
@@ -375,7 +375,7 @@ Exception thrown when trying to revoke an already revoked API key.
 
 Types: `YesNo`, `Free`, `Choice`, `Integer`, `Float`, `Textarea`
 
-### QA Tools and Standards
+### QA tools and standards
 
 **Common QA Issues:**
 1. **File Permissions**: Atomic updates must be executable
@@ -396,7 +396,7 @@ Types: `YesNo`, `Free`, `Choice`, `Integer`, `Float`, `Textarea`
 - **FAIL**: Blocking issues that must be fixed
 - **SKIP**: Tests skipped (usually due to missing files or conditions)
 
-### Perl Best Practices
+### Perl best practices
 
 **Modern Perl Usage:**
 ```perl
@@ -440,7 +440,7 @@ Koha::Database->schema->storage->txn_do(
 );
 ```
 
-### Test Naming Conventions
+### Test naming conventions
 
 **Subtest Titles:**
 - Format: `'method_name() tests'`
@@ -456,9 +456,9 @@ Koha::Database->schema->storage->txn_do(
 - Database-dependent tests: `t/db_dependent/`
 - Class-based naming: `t/db_dependent/ClassName.t`
 
-## Testing Framework
+## Testing framework
 
-### Test Structure Patterns
+### Test structure patterns
 
 **File Organization Standards:**
 - Database-dependent tests for `a_method` in class `Some::Class` → `t/db_dependent/Some/Class.t`
@@ -604,7 +604,7 @@ subtest 'method_name() tests' => sub {
 };
 ```
 
-### Exception Testing Patterns
+### Exception testing patterns
 
 **Exception::Class Testing:**
 ```perl
@@ -625,7 +625,7 @@ isa_ok($exception, 'MyException', 'Exception has correct class');
 is($exception->field, 'value', 'Exception field set correctly');
 ```
 
-### Mocking Patterns
+### Mocking patterns
 
 **Mock External Dependencies:**
 ```perl
@@ -642,7 +642,7 @@ $mock_client->mock('api_call', sub {
 });
 ```
 
-### Test Configuration
+### Test configuration
 
 **Disable External Calls:**
 ```perl
@@ -753,9 +753,9 @@ subtest 'Logger testing example' => sub {
 };
 ```
 
-## Plugin Development
+## Plugin development
 
-### Development Environment with KTD
+### Development environment with KTD
 
 Plugins are developed in `~/git/koha-plugins/`. Each plugin lives in its own directory. KTD mounts the plugin directory into the container.
 
@@ -795,7 +795,7 @@ ktd --name rapido --shell --run "koha-plack --restart kohadev"
 ktd --name dev --proxy --plugins up -d
 ```
 
-### Plugin Architecture
+### Plugin architecture
 
 For comprehensive understanding of Koha's plugin framework, see:
 **[Koha Plugin Architecture](plugin_architecture.md)**
@@ -812,7 +812,7 @@ This guide covers:
 - CI/CD with GitHub Actions and KPZ packaging
 - Best practices for performance, error handling, and maintainability
 
-## Commit Standards
+## Commit standards
 
 **Standard Commit Message Format:**
 ```
@@ -834,9 +834,9 @@ Bug XXXXX: (follow-up) Brief description of the fix
 Explanation of what QA issue or problem this addresses.
 ```
 
-## Operational Deployment
+## Operational deployment
 
-### System Services
+### System services
 
 **Task Queue Daemon (systemd):**
 ```ini
@@ -855,7 +855,7 @@ Restart=always
 WantedBy=multi-user.target
 ```
 
-### Cron Jobs
+### Cron jobs
 
 **Synchronization Scripts:**
 ```bash
@@ -867,7 +867,7 @@ WantedBy=multi-user.target
 - `<instance>`: Koha instance name (e.g., `kohadev`, `library`)
 - `<pod_name>`: Pod identifier from configuration
 
-### Monitoring & Debugging
+### Monitoring & debugging
 
 **Log Analysis:**
 ```bash
@@ -915,9 +915,9 @@ use Data::Dumper;
 print Dumper($config);
 ```
 
-## Best Practices Summary
+## Best practices summary
 
-### Development Workflow
+### Development workflow
 1. **Setup KTD** with proper environment variables
 2. **Format code** with tidy.pl before every commit
 3. **Write tests first** (TDD approach when possible)
@@ -925,14 +925,14 @@ print Dumper($config);
 5. **Mock external dependencies** in tests
 6. **Follow naming conventions** for tests and methods
 
-### Architecture Principles
+### Architecture principles
 1. **Separation of concerns** (Backend ↔ ActionHandlers ↔ Client)
 2. **Consistent error handling** with Try::Tiny and custom exceptions
 3. **Configuration-driven behavior** with YAML and defaults
 4. **Transaction safety** for all database operations
 5. **Comprehensive logging** for debugging and monitoring
 
-### CSS/SCSS Development
+### CSS/SCSS development
 
 When modifying SCSS files in Koha, the compiled CSS assets must be rebuilt:
 
@@ -947,7 +947,7 @@ ktd --shell --run 'cd /kohadevbox/koha && npm run css:build'
 - Always rebuild after SCSS changes before testing
 - Use `npm run css:build` (not yarn) to avoid gulp dependency issues
 
-### Code Quality
+### Code quality
 1. **Mandatory code formatting** with Koha standards
 2. **Comprehensive test coverage** (unit + integration)
 3. **Proper exception handling** throughout codebase
