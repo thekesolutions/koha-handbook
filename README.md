@@ -20,24 +20,20 @@ A comprehensive guide for Koha and plugin development, covering architecture, de
 **Essential Environment Variables:**
 ```bash
 export KTD_HOME=/path/to/koha-testing-docker
-export PLUGINS_DIR=/path/to/plugins/parent/directory
 export SYNC_REPO=/path/to/koha/source
 export LOCAL_USER_ID=$(id -u)
 ```
 
 **KTD Workflow:**
 ```bash
-# 1. Launch with plugins support
-ktd --name instance --plugins up -d
+# 1. Launch
+ktd --proxy up -d
 
 # 2. Wait for readiness
-ktd --name instance --wait-ready 120
+ktd --wait-ready 120
 
-# 3. Install plugins
-ktd --name instance --shell --run "cd /kohadevbox/koha && perl misc/devel/install_plugins.pl"
-
-# 4. Run commands in container
-ktd --name instance --shell --run "command"
+# 3. Run commands in container
+ktd --shell --run "command"
 ```
 
 **KTD Database Management:**
@@ -51,17 +47,10 @@ ktd --shell --run "koha-mysql kohadev"
 # Execute SQL commands directly
 ktd --shell --run "koha-mysql kohadev -e 'SHOW TRIGGERS LIKE \"borrowers\";'"
 
-# List available Koha instances
-ktd --shell --run "koha-list"
-
-# Test database functions
-ktd --shell --run "cd /kohadevbox/koha && perl -MC4::Installer=trigger_exists -e 'print trigger_exists(\"trigger_name\") ? \"EXISTS\" : \"NOT FOUND\";'"
-
 # Database backup and restore testing
 ktd --shell --run "mysqldump -hdb -uroot -ppassword koha_kohadev > /tmp/backup.sql"
 ktd --shell --run "mysql -hdb -uroot -ppassword -e 'CREATE DATABASE test_restore;'"
 ktd --shell --run "mysql -hdb -uroot -ppassword test_restore < /tmp/backup.sql"
-ktd --shell --run "mysql -hdb -uroot -ppassword test_restore -e 'SHOW TRIGGERS LIKE \"borrowers\";'"
 ktd --shell --run "mysql -hdb -uroot -ppassword -e 'DROP DATABASE test_restore;'"
 ```
 
@@ -69,25 +58,15 @@ ktd --shell --run "mysql -hdb -uroot -ppassword -e 'DROP DATABASE test_restore;'
 - `.env` file must exist (copy from `env/defaults.env`)
 - `ktd` script location: `$KTD_HOME/bin/ktd`
 - All commands require `KTD_HOME` environment variable
-- Plugin directory structure: `/kohadevbox/plugins/plugin-name/`
 
-### Development Container Environment
+### Common Development Commands
 
-**Standard PERL5LIB Setup:**
-```bash
-export PERL5LIB=/kohadevbox/koha:/kohadevbox/plugins/plugin-name/Koha/Plugin/Com/Company/PluginName/lib:/kohadevbox/plugins/plugin-name:.
-```
-
-**Common Development Commands:**
 ```bash
 # Format code with Koha standards
 /kohadevbox/koha/misc/devel/tidy.pl path/to/file.pm
 
 # Run tests
 prove -v t/ t/db_dependent/
-
-# Install plugins
-cd /kohadevbox/koha && perl misc/devel/install_plugins.pl
 ```
 
 ## Architecture & Design Patterns
@@ -772,6 +751,48 @@ subtest 'Logger testing example' => sub {
 ```
 
 ## Plugin Development
+
+### Development Environment with KTD
+
+Plugins are developed in `~/git/koha-plugins/`. Each plugin lives in its own directory. KTD mounts the plugin directory into the container.
+
+**Example: setting up Rapido ILL for development:**
+```bash
+cd ~/git/koha-plugins
+git clone git@github.com:bywatersolutions/koha-plugin-rapido-ill.git rapido-ill
+```
+
+**Launch a KTD instance for a single plugin:**
+```bash
+ktd --name rapido --proxy --single-plugin ~/git/koha-plugins/rapido-ill up -d
+ktd --name rapido --wait-ready 120
+```
+
+The `--single-plugin` flag mounts only that plugin directory. Use `--plugins` instead to mount the entire `$PLUGINS_DIR` (all plugins).
+
+**Install and test:**
+```bash
+# Install plugins
+ktd --name rapido --shell --run "cd /kohadevbox/koha && perl misc/devel/install_plugins.pl"
+
+# Run plugin tests
+ktd --name rapido --shell --run "
+  cd /kohadevbox/plugins/rapido-ill &&
+  export PERL5LIB=\$PERL5LIB:Koha/Plugin/Com/ByWaterSolutions/RapidoILL/lib:. &&
+  prove -v t/
+"
+
+# Restart Plack after code changes
+ktd --name rapido --shell --run "koha-plack --restart kohadev"
+```
+
+**Multiple plugins:**
+```bash
+# Mount all plugins from $PLUGINS_DIR
+ktd --name dev --proxy --plugins up -d
+```
+
+### Plugin Architecture
 
 For comprehensive understanding of Koha's plugin framework, see:
 **[Koha Plugin Architecture](plugin_architecture.md)**
