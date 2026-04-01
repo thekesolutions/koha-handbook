@@ -574,4 +574,92 @@ This pattern eliminates double-loading entirely because each library class is on
 4. **Clean up temporary data** regularly
 5. **Profile plugin performance** impact
 
+## Version Management
+
+**Version Numbering:**
+- Follow semantic versioning (MAJOR.MINOR.PATCH)
+- Use `npm version patch|minor|major` to bump version, update the plugin `.pm` file, and create a git tag
+- Consolidate related changes in the same version
+
+**Changelog Management:**
+
+Use [Keep a Changelog](https://keepachangelog.com/) format. Every released version must have an entry — never skip versions. Reference issue numbers in each entry.
+
+```markdown
+## [1.0.2] - 2026-03-31
+
+### Added
+- File bundle step in publish wizard (#21)
+
+### Fixed
+- Duplicate metadata in DSpace deposits (#19)
+```
+
+**Plugin Commit Format:**
+```
+[#issue_number] Description of change
+```
+
+Multiple issues in one commit are fine: `[#17] Foo [#19] Bar`
+
+## CI/CD & Automation
+
+### GitHub Actions Workflow
+
+**Multi-Version Testing Matrix:**
+```yaml
+strategy:
+  matrix:
+    koha-version: [main, stable, oldstable]
+
+steps:
+  - name: Launch KTD
+    run: |
+      cd ../koha-testing-docker
+      ktd --name ci --plugins up -d
+      ktd --name ci --wait-ready 120
+
+  - name: Install Plugin
+    run: |
+      ktd --name ci --shell --run "cd /kohadevbox/koha && perl misc/devel/install_plugins.pl"
+
+  - name: Run Tests
+    run: |
+      ktd --name ci --shell --run "
+        cd /kohadevbox/plugins/plugin-name &&
+        export PERL5LIB=\$PERL5LIB:. &&
+        prove -v t/
+      "
+```
+
+**Key CI Configurations:**
+- Test on every push (not just main branch)
+- Package only on version tags (`v*.*.*`)
+- Use proper KTD environment
+- Include comprehensive error logging on failure
+
+### Packaging
+
+**KPZ Build with Gulp:**
+```javascript
+async function build() {
+  await execPromise("mkdir -p dist");
+  await execPromise("cp -r Koha dist/.");
+  await execPromise(`sed -i -e "s/1970-01-01/${today}/g" ${pm_file_path_dist}`);
+  await execPromise(`cd dist && zip -r ../${release_filename} ./Koha`);
+  await execPromise("rm -rf dist");
+}
+```
+
+**Packaging Rules:**
+- Only include `Koha/` directory in the KPZ
+- Exclude development files (tests, docs, configs)
+- `.gitignore` and packaging are separate systems
+
+**Release Workflow:**
+```bash
+npm version patch   # bumps version, updates .pm, creates git tag
+git push --follow-tags  # triggers CI release job
+```
+
 This architecture provides a robust foundation for building maintainable, scalable Koha plugins with proper configuration management, data persistence, and integration with the core Koha system.

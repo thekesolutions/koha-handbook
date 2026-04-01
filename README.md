@@ -11,8 +11,7 @@ A comprehensive guide for Koha and plugin development, covering architecture, de
 5. [Testing Framework](#testing-framework)
 6. [Plugin Development](#plugin-development)
 7. [Commit Standards](#commit-standards)
-8. [CI/CD & Automation](#cicd--automation)
-9. [Operational Deployment](#operational-deployment)
+8. [Operational Deployment](#operational-deployment)
 
 ## Development Environment
 
@@ -136,66 +135,6 @@ This guide covers:
 - Search field mapping system, database structure, and query behavior
 - Standard vs whole record search functionality and 856 field searchability
 - Performance considerations, troubleshooting, and best practices for search optimization
-
-### ActionHandler Pattern (Rapido ILL Example)
-
-**Separation of Concerns:**
-- **Backend**: UI wrapper, handles user interface flow and return structures
-- **ActionHandlers**: Business logic, database operations, API calls
-- **Client**: External API communication layer
-
-**Implementation Pattern:**
-```perl
-# Backend delegates to ActionHandler
-sub backend_method {
-    my ( $self, $params ) = @_;
-    
-    my $request = $params->{request};
-    my $pod     = $self->{plugin}->get_req_pod($request);
-    
-    return try {
-        $self->{plugin}->get_action_handler($pod)->business_method($request);
-        
-        return {
-            error   => 0,
-            method  => 'backend_method',
-            stage   => 'commit',
-            next    => 'illview',
-        };
-    } catch {
-        return {
-            error   => 1,
-            message => "$_",
-            method  => 'backend_method',
-        };
-    };
-}
-```
-
-**ActionHandler Business Logic:**
-```perl
-sub business_method {
-    my ( $self, $req, $params ) = @_;
-    
-    $params //= {};
-    my $options = $params->{client_options} // {};
-    
-    return try {
-        Koha::Database->schema->storage->txn_do(
-            sub {
-                # Business logic here
-                $self->{plugin}->get_client($self->{pod})->api_call($data, $options);
-                $req->status('NEW_STATUS')->store;
-            }
-        );
-        return $self;
-    } catch {
-        RapidoILL::Exception->throw(
-            sprintf("Unhandled exception: %s", $_)
-        );
-    };
-}
-```
 
 ### Koha::Object System
 
@@ -845,6 +784,8 @@ This guide covers:
 - Database integration with custom schema classes
 - Template integration and hook system usage
 - Factory methods for avoiding "Subroutine redefined" warnings
+- Version management, changelog conventions, and commit format
+- CI/CD with GitHub Actions and KPZ packaging
 - Best practices for performance, error handling, and maintainability
 
 ## Commit Standards
@@ -868,124 +809,6 @@ Bug XXXXX: (follow-up) Brief description of the fix
 
 Explanation of what QA issue or problem this addresses.
 ```
-
-### Rapido ILL Commit Format
-
-**Subject Line Format:**
-```
-[#issue_number] Description of change
-```
-
-**Examples:**
-```
-[#65] Implement ActionHandler system for task_queue_daemon.pl integration
-[#42] Fix authentication token refresh in APIHttpClient  
-[#73] Add comprehensive exception handling for CircAction processing
-```
-
-**Complete Commit Structure:**
-```
-[#65] Implement ActionHandler system for task_queue_daemon.pl integration
-
-Detailed explanation of the enhancement/fix.
-
-Changes:
-* Bullet point list of specific changes
-* Each change should be clear and specific
-
-Benefits:
-* List the benefits achieved
-* Focus on architectural improvements
-
-To test:
-1. Step-by-step instructions
-2. Run: ktd --name rapido --shell
-   k$ command_to_run
-=> SUCCESS: Expected positive outcome
-3. Sign off :-D
-```
-
-### Version Management
-
-**Version Numbering Rules:**
-- **Never change versions** without explicit instruction
-- **Add to current version** until told to bump
-- **Follow semantic versioning** when bumping (MAJOR.MINOR.PATCH)
-- **Consolidate related changes** in same version
-
-**Changelog Management:**
-```markdown
-## [0.9.4] - 2025-09-03
-
-### Added
-- [#99] New feature description
-
-### Changed  
-- [#98] Modification description
-- [#90] Refactoring description
-
-### Fixed
-- [#93] Bug fix description
-
-### Removed
-- [#92] Deprecated feature removal
-```
-
-## CI/CD & Automation
-
-### GitHub Actions Workflow
-
-**Multi-Version Testing Matrix:**
-```yaml
-strategy:
-  matrix:
-    koha-version: [main, stable, oldstable]
-
-steps:
-  - name: Setup Environment
-    run: |
-      echo "PLUGINS_DIR=$(pwd)/.." >> $GITHUB_ENV
-      echo "SYNC_REPO=$(pwd)/../kohaclone" >> $GITHUB_ENV
-      echo "KTD_HOME=$(pwd)/../koha-testing-docker" >> $GITHUB_ENV
-
-  - name: Launch KTD
-    run: |
-      cd ../koha-testing-docker
-      ktd --name ci --plugins up -d
-      ktd --name ci --wait-ready 120
-
-  - name: Install Plugin
-    run: |
-      ktd --name ci --shell --run "cd /kohadevbox/koha && perl misc/devel/install_plugins.pl"
-
-  - name: Run Tests
-    run: |
-      ktd --name ci --shell --run "cd /kohadevbox/plugins/plugin-name && export PERL5LIB=/kohadevbox/koha:/kohadevbox/plugins/plugin-name/lib:. && prove -lr t/"
-```
-
-**Key CI Configurations:**
-- Test on every push (not just main branch)
-- Package only on version tags (`v*.*.*`)
-- Use proper KTD environment without sudo
-- Include comprehensive error logging
-
-### Packaging
-
-**Automated Packaging with Gulp:**
-```javascript
-// gulpfile.js pattern
-gulp.task('build', function() {
-    return gulp.src(['Koha/**/*'])
-        .pipe(zip('plugin-name.kpz'))
-        .pipe(gulp.dest('dist/'));
-});
-```
-
-**Packaging Rules:**
-- Only include `Koha/` directory in package
-- Exclude development files (tests, docs, configs)
-- `.gitignore` and packaging are separate systems
-- Create `.kpz` files for distribution
 
 ## Operational Deployment
 
