@@ -440,6 +440,106 @@ sub opac_results_xslt_variables {
 }
 ```
 
+## Avoiding "Subroutine redefined" Warnings
+
+### The Problem
+
+Plugins that ship their own library classes (e.g. `Koha::Object` subclasses, API clients, converters) under a `lib/` directory commonly hit "Subroutine redefined" warnings during `install_plugins.pl` or Plack startup. This happens when the same module is loaded twice via different `@INC` paths — for example, the plugin's `BEGIN` block adds `lib/` to `@INC` and eagerly `require`s classes, then the Controller `use`s them again through a path that resolves differently (e.g. symlinks in development environments).
+
+**Symptoms:**
+```
+Subroutine new redefined at .../lib/MyPlugin/Client.pm line 41.
+Subroutine process redefined at .../lib/MyPlugin/Converter.pm line 28.
+```
+
+### The Solution: Factory Methods with Lazy Loading
+
+Instead of having the Controller (or other consumers) directly `use` the library classes, the plugin class provides factory methods that `require` the class on first call. The Controller only `use`s the plugin class itself.
+
+**Plugin class — factory methods:**
+```perl
+package Koha::Plugin::Com::Company::MyPlugin;
+
+use base qw(Koha::Plugins::Base);
+
+BEGIN {
+    my $path = Module::Metadata->find_module_by_name(__PACKAGE__);
+    $path =~ s!\.pm$!/lib!;
+    unshift @INC, $path
+        unless grep { $_ eq $path } @INC;
+
+    # Only DBIC schema registration belongs in BEGIN
+    require Koha::Schema::Result::MyPluginRecord;
+    Koha::Schema->register_class(
+        MyPluginRecord => 'Koha::Schema::Result::MyPluginRecord' );
+    Koha::Database->schema( { new => 1 } );
+}
+
+# Factory methods — lazy-load via require
+sub records {
+    require MyPlugin::Records;
+    return MyPlugin::Records->new;
+}
+
+sub find_record {
+    my ( $self, $id ) = @_;
+    require MyPlugin::Records;
+    return MyPlugin::Records->find($id);
+}
+
+sub new_record {
+    my ( $self, $data ) = @_;
+    require MyPlugin::Record;
+    return MyPlugin::Record->new($data);
+}
+
+sub new_client {
+    my ( $self, %args ) = @_;
+    require MyPlugin::Client;
+    return MyPlugin::Client->new(%args);
+}
+```
+
+**Controller — uses only the plugin class:**
+```perl
+package Koha::Plugin::Com::Company::MyPlugin::Controller;
+
+use Mojo::Base 'Mojolicious::Controller';
+use Koha::Plugin::Com::Company::MyPlugin;
+
+my $plugin = Koha::Plugin::Com::Company::MyPlugin->new;
+
+sub list {
+    my $c = shift->openapi->valid_input or return;
+    return $c->render(
+        status  => 200,
+        openapi => $c->objects->search( $plugin->records ),
+    );
+}
+
+sub get {
+    my $c = shift->openapi->valid_input or return;
+    my $record = $plugin->find_record( $c->param('record_id') );
+    # ...
+}
+
+sub add {
+    my $c = shift->openapi->valid_input or return;
+    my $record = $plugin->new_record( $c->req->json )->store;
+    # ...
+}
+```
+
+### Key Rules
+
+1. **BEGIN block**: only `@INC` setup and DBIC schema registration — nothing else
+2. **Guard `@INC`**: check for duplicates before `unshift` to handle symlinked plugin dirs
+3. **Factory methods**: use `require` (not `use`) inside the sub body — Perl's `require` is a no-op on subsequent calls thanks to `%INC`
+4. **Controller**: `use` only the plugin class, never the lib classes directly
+5. **Plugin instance**: instantiate once at module scope (`my $plugin = ...->new`) and reuse across controller methods
+
+This pattern eliminates double-loading entirely because each library class is only ever `require`d through one code path — the factory method.
+
 ## Best Practices
 
 ### Configuration Management
