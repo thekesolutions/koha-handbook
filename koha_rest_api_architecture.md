@@ -603,14 +603,30 @@ vim api/v1/swagger/paths/my_endpoint.yaml
 # 2. Rebuild bundle in KTD
 ktd --shell --run "cd /kohadevbox/koha && yarn api:bundle"
 
-# 3. Test your changes
+# 3. Validate the spec (must pass before submitting)
+ktd --shell --run "cd /kohadevbox/koha && prove xt/api.t"
+
+# 4. Test your changes
 ktd --shell --run "cd /kohadevbox/koha && prove t/db_dependent/api/v1/my_test.t"
 
-# 4. Run QA tools
+# 5. Run QA tools
 ktd --shell --run "cd /kohadevbox/koha && /kohadevbox/qa-test-tools/koha-qa.pl -c 2"
 ```
 
+**Important**: Always run `prove xt/api.t` after any API specification changes. This test validates the OpenAPI spec structure, checks that all tags used in path definitions are declared in the top-level tags list, and runs swagger-cli validation. Failing to run this will result in QA failures.
+
 **Note**: The `swagger_bundle.json` file is automatically generated and should not be manually edited or committed to git.
+
+### Reference Implementation
+
+The **cities** endpoint (`Koha::REST::V1::Cities`) is considered the reference implementation for Koha REST API resources. When implementing a new CRUD endpoint, use these files as your starting template:
+
+- **Controller**: `Koha/REST/V1/Cities.pm`
+- **Path spec**: `api/v1/swagger/paths/cities.yaml`
+- **Definition**: `api/v1/swagger/definitions/city.yaml`
+- **Tests**: `t/db_dependent/api/v1/cities.t`
+
+The cities endpoint demonstrates the standard patterns for list/get/add/update/delete operations, including proper use of `$c->objects->search()`, `$c->objects->to_api()`, `new_from_api()`, `set_from_api()`, `render_resource_not_found()`, `render_resource_deleted()`, and `unhandled_exception()`. It does not implement embeds; for embed examples, refer to endpoints like patrons or biblios.
 
 ## Confirmation Flow Pattern
 
