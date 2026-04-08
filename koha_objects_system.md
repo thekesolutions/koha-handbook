@@ -643,7 +643,8 @@ is($results->count, 0, 'Item type not found for unauthorized library');
 #### 1. Consistent Naming
 - Junction tables: `{object_type}_branches`
 - DBIC classes: `{ObjectType}sBranch`
-- Always use `branchcode` for the library column
+- New tables: use `library_id` for the library FK column (see [database_naming_conventions.md](database_naming_conventions.md))
+- Legacy tables use `branchcode` — don't rename, but don't follow for new work
 
 #### 2. Transaction Safety
 ```perl
