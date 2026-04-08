@@ -843,6 +843,71 @@ if ($c->stash('is_public')) {
 
 This ensures patrons cannot override certain restrictions that require staff intervention.
 
+## Error Responses and `error_code` Pattern
+
+All error responses return a JSON object with at least an `error` field (human-readable message). For machine-parseable errors, include an `error_code` field with a snake_case identifier.
+
+### Controller pattern
+
+```perl
+return $c->render(
+    status  => 400,
+    openapi => {
+        error      => "'to' date must be after 'from' date",
+        error_code => 'invalid_date_range',
+    }
+);
+```
+
+The `error` field is for humans (logs, debugging). The `error_code` field is for clients to branch on programmatically without parsing strings.
+
+### Swagger spec pattern
+
+Document possible `error_code` values in the response description:
+
+```yaml
+"400":
+  description: |
+    Bad request. Possible `error_code` attribute values:
+
+    * `invalid_date_range` - 'to' date is before 'from' date
+    * `date_range_too_large` - Date range exceeds 365 days
+  schema:
+    $ref: "../swagger.yaml#/definitions/error"
+```
+
+For 500 errors, the standard code is `internal_server_error`:
+
+```yaml
+"500":
+  description: |
+    Internal server error. Possible `error_code` attribute values:
+
+    * `internal_server_error`
+  schema:
+    $ref: "../swagger.yaml#/definitions/error"
+```
+
+### Guidelines
+
+- Every 400 response with distinct failure modes should document its `error_code` values
+- Use snake_case for error codes (e.g. `invalid_date_range`, `missing_mandatory_attribute`)
+- Keep codes specific to the failure, not generic (prefer `date_range_too_large` over `bad_request`)
+- Tests should assert on `error_code`, not on the human-readable `error` string — the message may change, the code should not
+- The `error` definition in `swagger.yaml` already includes both fields; no schema changes needed
+
+### Existing examples in the codebase
+
+| Endpoint | error_code | Meaning |
+|---|---|---|
+| `POST /biblios` | `record_creation_failed` | MARC record could not be created |
+| `POST /patrons` | `missing_mandatory_attribute` | Required extended attribute missing |
+| `POST /items/{id}/bundled_items` | `already_bundled` | Item is already in a bundle |
+| `POST /checkouts` | `ITEM_NOT_FOUND` | Item barcode not found |
+| `DELETE /record_sources/{id}` | `cannot_delete_used` | Record source is in use |
+| `GET /libraries/{id}/closed_dates` | `invalid_date_range` | 'to' before 'from' |
+| `GET /libraries/{id}/closed_dates` | `date_range_too_large` | Range exceeds 365 days |
+
 ## API Specification Management
 
 This architecture provides Koha with a modern, standards-compliant REST API that seamlessly integrates with the existing Koha Object system while maintaining performance, security, and extensibility through the plugin system.
