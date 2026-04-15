@@ -6,12 +6,13 @@ A comprehensive guide for Koha and plugin development, covering architecture, de
 
 1. [Development environment](#development-environment)
 2. [Architecture & design patterns](#architecture--design-patterns)
-3. [Background jobs system](background_jobs.md)
-4. [Coding standards](#coding-standards)
-5. [Testing framework](#testing-framework)
-6. [Plugin development](#plugin-development)
-7. [Commit standards](#commit-standards)
-8. [Best practices summary](#best-practices-summary)
+3. [Design patterns](koha_design_patterns.md)
+4. [Background jobs system](background_jobs.md)
+5. [Coding standards](#coding-standards)
+6. [Testing framework](#testing-framework)
+7. [Plugin development](#plugin-development)
+8. [Commit standards](#commit-standards)
+9. [Best practices summary](#best-practices-summary)
 
 ## Development environment
 
