@@ -409,6 +409,34 @@ Koha::Database->schema->storage->txn_do(
 );
 ```
 
+### Naming conventions
+
+**Status codes, blocker keys, and error codes** use `snake_case`:
+```perl
+# ✅ CORRECT
+$result->add_blocker( item_already_on_hold => 1 );
+$result->add_blocker( too_many_reserves => $limit );
+return { status => 'no_reserves_allowed' };
+
+# ❌ WRONG — no camelCase for codes
+$result->add_blocker( itemAlreadyOnHold => 1 );
+return { status => 'tooManyReserves' };
+```
+
+This applies to:
+- Availability blocker/warning/confirmation keys
+- Status strings returned by `Can*BeReserved` and similar functions
+- `error_code` values in API responses
+- ENUM values in the database (e.g., `club_holds_to_patron_holds.error_code`)
+
+**Method names** use `snake_case`:
+```perl
+sub holds_control_library { ... }  # ✅
+sub holdsControlLibrary { ... }    # ❌
+```
+
+**Database columns and tables**: see [Database Naming Conventions](database_naming_conventions.md).
+
 ### Test naming conventions
 
 **Subtest Titles:**
