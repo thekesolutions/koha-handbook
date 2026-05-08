@@ -14,6 +14,7 @@ A comprehensive guide for Koha and plugin development, covering architecture, de
 4. [Background jobs system](background_jobs.md)
 5. [Coding standards](#coding-standards)
    - [Community Coding Guidelines](coding_guidelines.md) (from wiki)
+   - [API Coding Guidelines](coding_guidelines_api.md) (from wiki)
 6. [Testing framework](#testing-framework)
 7. [Plugin development](#plugin-development)
 8. [Commit standards](#commit-standards)
