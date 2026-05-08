@@ -413,6 +413,8 @@ Koha::Database->schema->storage->txn_do(
 
 ### Naming conventions
 
+**ASCII only in code and commit messages.** Never use Unicode dashes (—, –), quotes (" "), or other non-ASCII punctuation. Use plain ASCII: `--`, `"`, `'`.
+
 **Status codes, blocker keys, and error codes** use `snake_case`:
 ```perl
 # ✅ CORRECT
