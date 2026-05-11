@@ -303,3 +303,50 @@ subtest 'Logger testing example' => sub {
     $logger->error_like(qr/Invalid item/, 'Error logged for invalid input');
 };
 ```
+
+## Date comparison with t::lib::Dates
+
+**Problem:** Direct string comparison of timestamps in tests causes intermittent failures when a test runs across a second boundary (e.g., an operation happens at `14:00:00.999` but the assertion reads the timestamp at `14:00:01.000`).
+
+**Solution:** Use `t::lib::Dates::compare` which allows up to 5 seconds of tolerance:
+
+```perl
+use t::lib::Dates;
+
+# compare() returns 0 if dates are within 5 seconds, -1 or 1 otherwise
+is( t::lib::Dates::compare( $got_date, $expected_date ), 0, 'Dates match (within 5s tolerance)' );
+```
+
+**When to use:**
+- Comparing timestamps generated during test execution (e.g., `created_on`, `timestamp`, `updated_on`)
+- Comparing dates from action logs against object timestamps
+- Any test where the expected date is "now" or was just set by the code under test
+
+**When NOT to use:**
+- Comparing fixed dates (e.g., `'2026-01-15'` vs a stored value) — use `is()` directly
+- Comparing dates that should be exactly equal because they come from the same DB row
+
+**Anti-pattern (causes intermittent failures):**
+```perl
+# ❌ WRONG — string comparison fails across second boundaries
+my $expected = sprintf q{'timestamp' => '%s'}, $hold->timestamp;
+like( $log->info, qr{$expected}, 'Timestamp matches' );
+
+# ❌ WRONG — direct equality on "now" timestamps
+is( $object->created_on, dt_from_string()->ymd . ' ' . dt_from_string()->hms, 'Created now' );
+```
+
+**Correct pattern:**
+```perl
+# ✅ CORRECT — tolerant comparison
+use t::lib::Dates;
+
+is( t::lib::Dates::compare( $object->created_on, dt_from_string() ), 0, 'Created approximately now' );
+
+# ✅ CORRECT — extract and compare with tolerance
+if ( $log->info =~ m{'timestamp' => '([^']*)'} ) {
+    is( t::lib::Dates::compare( $1, $hold->timestamp ), 0, 'Timestamp logged is current' );
+} else {
+    fail('Log entry not found or malformed');
+}
+```
