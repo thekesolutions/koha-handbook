@@ -770,3 +770,7 @@ eval {
 ```
 
 This enforcement ensures users only see objects available to their library while providing administrators full control over library-specific restrictions.
+
+## See also
+
+- **[DBIC Relationship Naming for Accessor Methods](dbic_relationship_naming.md)** — naming conventions ensuring accessor methods are backed by DBIC relationships for sortable embeds and prefetching

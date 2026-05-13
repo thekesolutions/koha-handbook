@@ -247,6 +247,12 @@ my $patron = $c->objects->find_rs( Koha::Patrons->new, $patron_id );
 # Plugin automatically applies prefetch based on _embed parameter
 ```
 
+#### +count embeds and sorting
+
+The `+count` suffix (e.g. `checkouts+count`) embeds a count of related objects instead of the objects themselves. When backed by a matching DBIC relationship, these counts are sortable via SQL-level COUNT subqueries (bug 41950).
+
+If a `+count` embed cannot be sorted (no DBIC relationship or complex logic), it must be annotated with `x-koha-unsortable-embeds` on the operation. See [DBIC Relationship Naming](dbic_relationship_naming.md) for the full pattern.
+
 ## OpenAPI Integration Patterns
 
 ### 1. Specification-Driven Development

@@ -55,6 +55,8 @@ Format: `action_data`, action in past tense.
 
 - FK fields: `related_id` (e.g., `patron_id`, `manager_id`, `creator_id`)
 - When embedded, use just the relation name (e.g., `patron` returns a Koha::Patron object)
+- `+count` embeds (e.g., `checkouts+count`) require a matching DBIC relationship to be sortable. See [DBIC Relationship Naming](dbic_relationship_naming.md)
+- Unsortable `+count` embeds must be annotated with `x-koha-unsortable-embeds` on the list operation
 
 ## REST2: HTTP Methods
 

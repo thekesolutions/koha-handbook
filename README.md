@@ -92,6 +92,10 @@ This guide covers:
 - Object creation patterns, database operations, and performance considerations
 - Plugin development with custom objects and schema extensions
 
+**[DBIC Relationship Naming for Accessor Methods](dbic_relationship_naming.md)**
+
+Naming conventions ensuring Koha::Object accessor methods are backed by matching DBIC relationships, enabling sortable `+count` embeds and efficient prefetching.
+
 ### Template::Toolkit system architecture
 
 For detailed understanding of Koha's templating and internationalization system, see:
