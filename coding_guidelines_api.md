@@ -98,6 +98,44 @@ All request parameters must be specified in the OpenAPI spec.
 
 POST must include `Location` header pointing to the created resource.
 
+### REST3.5: Async Job Responses (202 Accepted)
+
+When a POST endpoint enqueues a background job rather than directly creating the target resource, it must return **202 Accepted** (not 201 Created).
+
+**Rules:**
+- Response body: full job object representation (same as `GET /api/v1/jobs/{job_id}`)
+- `Location` header: points to `/api/v1/jobs/{job_id}`
+- OpenAPI spec: reference the shared job definition (`$ref: "../swagger.yaml#/definitions/job"`)
+
+**Rationale:** 201 implies the resource exists immediately. 202 signals the request was accepted for deferred processing. Returning the full job object gives clients immediate access to status and metadata without a follow-up request.
+
+**Controller pattern:**
+
+```perl
+my $job = Koha::BackgroundJob::SomeJob->new;
+$job->enqueue({ ... });
+
+return $c->render_job_accepted($job);
+```
+
+The `render_job_accepted` helper (in `Koha::REST::Plugin::Responses`) handles the Location header and renders the job via `$c->objects->to_api`.
+
+**OpenAPI spec pattern:**
+
+```yaml
+responses:
+  202:
+    description: Job accepted for processing
+    headers:
+      Location:
+        description: URL to track the background job status
+        type: string
+    schema:
+      $ref: "../swagger.yaml#/definitions/job"
+```
+
+**Applies to:** batch imports, bulk operations, reindexing, or any endpoint where the primary outcome is a background job.
+
 ## REST4: Controller Code
 
 ### REST4.0: The basics
