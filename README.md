@@ -326,12 +326,23 @@ Exception thrown when trying to revoke an already revoked API key.
 3. **Alphabetical Order**: Maintain strict alphabetical order in sysprefs.sql
 4. **Preference Template**: Add to appropriate `.pref` file in `koha-tmpl/intranet-tmpl/prog/en/modules/admin/preferences/`
 
-**System Preference Structure:**
+**System Preference Structure (sysprefs.sql):**
 ```sql
-('PreferenceName', 'default_value', 'options', 'Description text', 'Type'),
+('PreferenceName', 'default_value'),
 ```
 
-Types: `YesNo`, `Free`, `Choice`, `Integer`, `Float`, `Textarea`
+The `systempreferences` table still has `options`, `explanation`, and `type` columns, but
+`sysprefs.sql` only inserts `variable` and `value`. Metadata (type, description) is managed
+in the `.pref` YAML files under `koha-tmpl/intranet-tmpl/prog/en/modules/admin/preferences/`.
+
+**Atomic update pattern for adding a syspref:**
+```perl
+$dbh->do(q{
+    INSERT IGNORE INTO systempreferences (variable, value)
+    VALUES ('MyNewPreference', '0')
+});
+say $out "Added new system preference 'MyNewPreference'";
+```
 
 ### Quality assurance
 
