@@ -67,14 +67,15 @@ preference accordingly.
 **Step 1: Find your effective IP**
 
 The host machine's IP as seen by Koha is the gateway of the Docker `proxy`
-network (the network shared with Traefik):
+network (the network shared with Traefik). Run:
 
 ```bash
-docker network inspect proxy --format '{{range .IPAM.Config}}{{.Gateway}}{{end}}'
+ktd_proxy --show-ip
 ```
 
 This typically returns something like `172.18.0.1` (Linux) or `192.168.65.1`
-(macOS with Docker Desktop).
+(macOS with Docker Desktop). This IP is the same for all KTD instances on
+the same machine.
 
 You can verify by checking the access log after visiting the OPAC in your
 browser (e.g. `http://bug_XXXXX.koha/`):
