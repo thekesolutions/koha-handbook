@@ -58,23 +58,64 @@ Typical values you'll see:
 
 ## Strategies for testing IP-restricted features
 
-### Strategy 1: Use the container's known IP in the preference
+### Manual testing in the browser (most common)
 
-Set the IP range preference to match what Koha actually sees. For example:
+When testing features like `OpacSuppressionByIPRange` through your browser,
+you need to know what IP Koha sees for your requests so you can set the
+preference accordingly.
+
+**Step 1: Find your effective IP**
+
+Make a request from your browser (visit the OPAC), then check the access log:
 
 ```bash
-# Find your effective IP
 ktd --name bug_XXXXX --shell --run "tail -1 /var/log/koha/kohadev/opac-access.log"
-# Output: 192.168.65.1 - - [10/Aug/2026:...] "GET /cgi-bin/koha/opac-main.pl ...
-
-# Set the preference to match
-ktd --name bug_XXXXX --shell --run \
-  "koha-shell kohadev -c \"echo 'UPDATE systempreferences SET value=\"192.168.\" WHERE variable=\"OpacSuppressionByIPRange\"' | koha-mysql kohadev\""
 ```
 
-### Strategy 2: Mock REMOTE_ADDR in tests
+Output example:
+```
+192.168.65.1 - - [10/Aug/2026:13:42:01 +0000] "GET /cgi-bin/koha/opac-main.pl HTTP/1.1" 200 ...
+```
 
-For unit/integration tests, use `t::lib::Mocks` or set the environment directly:
+The first field (`192.168.65.1`) is what Koha sees as your IP.
+
+**Step 2: Set the preference to match (or not)**
+
+To test the "IP in range" path (e.g. user CAN see suppressed records):
+```
+OpacSuppressionByIPRange = 192.168.
+```
+
+To test the "IP NOT in range" path (e.g. user cannot see suppressed records):
+```
+OpacSuppressionByIPRange = 10.99.
+```
+(any prefix that doesn't match your actual IP)
+
+**Step 3: Clear the cache and reload**
+
+After changing the preference, clear Memcached so the new value takes effect:
+
+```bash
+ktd --name bug_XXXXX --shell --run "koha-shell kohadev -c 'memcached-tool localhost:11211 flush_all'"
+```
+
+Then reload the OPAC page in your browser.
+
+### Typical IPs seen in KTD
+
+| Host OS | IP Koha sees from browser | Explanation |
+|---|---|---|
+| macOS (Docker Desktop) | `192.168.65.1` | Docker Desktop's VM gateway |
+| Linux (native Docker) | `172.x.0.1` | Docker bridge gateway |
+| Inside container (`curl localhost`) | `127.0.0.1` | Loopback |
+
+These can vary depending on Docker version and network configuration. Always
+verify with the access log.
+
+### Strategy for unit tests (prove)
+
+For automated tests, mock the IP directly:
 
 ```perl
 # In a test file
@@ -85,19 +126,8 @@ local $ENV{'REMOTE_ADDR'} = '10.0.0.1';
 # Now test with an IP outside the range
 ```
 
-### Strategy 3: Use `127.` as the IP range for in-container testing
-
 When running `prove` inside the KTD container, requests to `localhost` have
-`REMOTE_ADDR = 127.0.0.1`. Setting the IP range to `127.` will match:
-
-```perl
-t::lib::Mocks::mock_preference('OpacSuppressionByIPRange', '127.');
-```
-
-This is the recommended approach for automated tests — it's deterministic and
-doesn't depend on Docker network configuration.
-
-### Strategy 4: Test both cases explicitly
+`REMOTE_ADDR = 127.0.0.1`. Setting the IP range to `127.` will match.
 
 The most robust test pattern covers both "in range" and "out of range":
 
