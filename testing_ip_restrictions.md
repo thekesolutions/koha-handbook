@@ -66,18 +66,22 @@ preference accordingly.
 
 **Step 1: Find your effective IP**
 
-Make a request from your browser (visit the OPAC), then check the access log:
+The host machine's IP as seen by Koha is the gateway of the Docker `proxy`
+network (the network shared with Traefik):
 
 ```bash
-ktd --name bug_XXXXX --shell --run "tail -1 /var/log/koha/kohadev/opac-access.log"
+docker network inspect proxy --format '{{range .IPAM.Config}}{{.Gateway}}{{end}}'
 ```
 
-Output example:
-```
-192.168.65.1 - - [10/Aug/2026:13:42:01 +0000] "GET /cgi-bin/koha/opac-main.pl HTTP/1.1" 200 ...
-```
+This typically returns something like `172.18.0.1` (Linux) or `192.168.65.1`
+(macOS with Docker Desktop).
 
-The first field (`192.168.65.1`) is what Koha sees as your IP.
+You can verify by checking the access log after visiting the OPAC in your
+browser (e.g. `http://bug_XXXXX.koha/`):
+
+```bash
+ktd --name bug_XXXXX --shell --run "tail -1 /var/log/koha/kohadev/opac-access.log | awk '{print \$1}'"
+```
 
 **Step 2: Set the preference to match (or not)**
 
